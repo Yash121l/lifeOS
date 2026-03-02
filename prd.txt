@@ -1,0 +1,344 @@
+PRODUCT REQUIREMENTS DOCUMENT
+LifeOS
+Your AI-Powered Life Management App for iPhone
+Version 1.0  •  iOS-First  •  Confidential
+
+1. Executive Summary
+LifeOS is a native iPhone application that unifies time management, task management, personal finance, and knowledge capture into a single, AI-augmented productivity system. Unlike fragmented tools (Notion + Google Calendar + Splitwise + YNAB), LifeOS provides one coherent experience where every domain is aware of the others.
+
+Core Value Proposition
+When your calendar knows your budget, your tasks know your location, and your notes are linked to your schedule — you stop managing apps and start managing your life.
+
+Success Metrics (6 months post-launch)
+Metric
+Target
+Measurement Method
+Daily Active Users
+70% of installs
+Analytics events
+Session Length
+> 4 min/day
+App session tracking
+Task Completion Rate
+> 65%
+Task status events
+App Store Rating
+≥ 4.6 stars
+App Store Connect
+7-Day Retention
+> 55%
+Cohort analysis
+Premium Conversion
+> 12%
+RevenueCat
+
+
+2. Platform & Technical Foundation
+2.1 iOS-First Architecture
+LifeOS is built as a native iOS application using Swift and SwiftUI, targeting iOS 17+ to leverage the full power of the Apple ecosystem. A companion iPadOS layout will be provided but is not in scope for v1.0.
+Native iOS Features (Mandatory)
+	•	Dynamic Island integration — persistent live activity for active tasks, timers, and finance alerts
+	•	Lock Screen Widgets (WidgetKit) — task count, next event, daily budget remaining
+	•	Home Screen Widgets (small, medium, large) — quick capture, today's schedule, finance summary
+	•	Siri Shortcuts — 'Hey Siri, add task to LifeOS' and 'What's my budget status?'
+	•	Focus Modes integration — surfaces relevant task lists based on iPhone Focus (Work, Personal, Sleep)
+	•	Live Activities — display active time blocks and countdowns in Dynamic Island and Lock Screen
+	•	Haptic Engine — subtle confirmations on task completion, budget alerts, AI reschedules
+	•	iCloud Sync — cross-device state (iPhone + iPad + Mac) via CloudKit
+	•	CoreLocation — GPS-triggered context switching between task profiles
+	•	Background App Refresh — sync calendar events, financial transactions in background
+	•	Apple Calendar, Reminders, and Contacts integration via EventKit and CNContactStore
+	•	Sign in with Apple — primary auth method
+Tech Stack
+Layer
+Technology
+Rationale
+UI Framework
+SwiftUI + UIKit bridges
+Native performance, Dynamic Island, WidgetKit
+Language
+Swift 5.9+
+Concurrency, async/await for API calls
+Local Database
+SwiftData (iOS 17)
+Persistent offline-first storage
+Sync
+CloudKit (iCloud)
+Privacy-respecting, no extra infra needed
+AI Engine
+Claude API (Anthropic) + on-device ML (CoreML)
+Smart scheduling, NLP task input
+Finance APIs
+Plaid (US/Canada) + Salt Edge (India/EU)
+Bank & card aggregation
+Calendar Sync
+Google Calendar API + Microsoft Graph API
+Outlook/Exchange support
+Widgets
+WidgetKit + ActivityKit (Live Activities)
+Dynamic Island, Lock Screen, Home Screen
+Push Notifications
+APNs via Firebase FCM
+Budget alerts, task reminders
+Analytics
+PostHog (self-hosted)
+Privacy-first, no GDPR violations
+Payments
+RevenueCat + StoreKit 2
+Subscription management
+
+
+3. Module 1 — Time & Schedule Management
+3.1 Unified Calendar
+The Calendar module provides a single, merged view across Google Calendar, Outlook/Exchange, and Apple Calendar. All reads happen in real-time; writes are sent back to the source calendar automatically.
+Views
+	•	Day view with hourly time blocks and a vertical task sidebar
+	•	Week view with drag-and-drop scheduling
+	•	Month view with colored event density indicators
+	•	Agenda view (upcoming 14 days list)
+3.2 Time Blocking
+Users can drag any task from the Task Panel directly onto the calendar to schedule it. This creates a 'time block' event synced back to Google/Outlook Calendar as a real event (preventing others from booking you during focus time).
+	•	Minimum block size: 15 minutes
+	•	Default block size: auto-calculated from task estimated duration
+	•	Snapping: blocks snap to 15-minute intervals
+	•	Color coding: blocks inherit task project color
+3.3 AI Rescheduling Engine
+Behaviour
+If a meeting overruns its scheduled end time by > 10 minutes (detected via Calendar event status), the AI Scheduler automatically pushes all subsequent time blocks forward, reorders by priority if needed, and notifies the user via Dynamic Island and a push notification with a one-tap 'Accept Reschedule' action.
+
+Rescheduling logic priority order:
+	•	Rule 1: Hard deadlines are never moved past their deadline
+	•	Rule 2: Non-urgent tasks are moved first
+	•	Rule 3: Deep Work blocks are preserved unless forced by hard constraint
+	•	Rule 4: If rescheduling is impossible for the day, overflow tasks are moved to next available slot
+3.4 Routine Templates
+Pre-built and user-created recurring block templates that can be applied to any day:
+Template Name
+Default Blocks
+Configurable?
+Morning Routine
+7:00–7:30 Exercise, 7:30–8:00 Review day
+Yes
+Deep Work
+Configurable 2–4 hour focus block, DND mode on
+Yes
+Workout
+1 hour gym/run block, links to Health app
+Yes
+Study Session
+Pomodoro 25/5 blocks, auto-surface Study task list
+Yes
+Wind Down
+9:30 PM, enables Sleep Focus, hides non-personal tasks
+Yes
+
+
+4. Module 2 — Task & Project Management
+4.1 Natural Language Input
+The task input bar accepts natural language and parses it into structured task data using on-device NLP (Apple NaturalLanguage framework) combined with Claude API for complex patterns.
+
+Input
+Parsed Output
+'Push code to GitHub every Friday at 4 PM'
+Title: Push code to GitHub | Recurrence: Weekly Friday | Time: 16:00
+'Finish report by Thursday, high priority'
+Title: Finish report | Due: next Thursday | Priority: High
+'Call Mom this weekend'
+Title: Call Mom | Due: Saturday or Sunday | Category: Personal
+'Review PR after standup tomorrow'
+Title: Review PR | Due: tomorrow post-09:30 AM | Dependency: Standup event
+
+4.2 Task Hierarchy & Dependencies
+	•	Projects contain Tasks; Tasks contain Sub-tasks (max 3 levels deep)
+	•	Dependencies: Task B marked as 'blocked by Task A' — B is grayed out until A is marked complete
+	•	Critical Path highlighting: the shortest path to project completion is highlighted in Gantt view
+	•	Overdue dependency alert: if Task A is overdue and Task B depends on it, notify user immediately
+4.3 Views
+Kanban Board
+Columns: Backlog → In Progress → Blocked → Done. Cards show priority color, due date, and estimated time. Drag cards to change status. Collapse columns on iPhone for single-column scroll mode.
+Gantt Chart
+Horizontal timeline showing all project tasks, their duration, and dependency arrows. Pinch-to-zoom for day/week/month granularity. Only available in Pro tier due to rendering complexity.
+4.4 Priority Matrix (Eisenhower)
+Tasks are automatically scored on two axes — Urgency (based on due date proximity) and Importance (based on user-assigned importance tag or AI inference from keywords like 'client', 'exam', 'deadline'). The matrix is displayed as a 2x2 quadrant view and drives the default sort order in list view.
+
+
+5. Module 3 — Finance & Wealth Tracker
+5.1 Account Aggregation
+Bank accounts and credit cards are linked via Plaid (US/Canada) and Salt Edge (India, EU, UK). All financial data is read-only. No payment initiation. Tokens stored in iOS Keychain, never on our servers.
+Supported Account Types
+	•	Checking & savings accounts
+	•	Credit cards
+	•	Investment accounts (stocks, mutual funds)
+	•	Crypto wallets via read-only API keys (Coinbase, Binance, WazirX for India)
+	•	UPI-linked accounts via Salt Edge (India)
+5.2 Expense Categorization
+Transactions are auto-categorized using a combination of merchant name matching (rule-based), MCC codes, and a CoreML on-device classifier trained on common Indian and international merchants.
+
+Merchant / Pattern
+Category
+Editable?
+Zomato, Swiggy, McDonald's
+Food & Dining
+Yes
+AWS, GitHub, Vercel
+Tech / Dev
+Yes
+Netflix, Spotify, Prime
+Subscriptions
+Yes
+Uber, Ola, Rapido
+Transport
+Yes
+Apollo, MedPlus, 1mg
+Health
+Yes
+User-defined rules
+Custom Category
+Yes
+
+5.3 Budget Guardrails
+Monthly or weekly budget limits per category. The system triggers notifications at 50%, 80%, and 100% of the budget. Budget alerts appear as Live Activities on the Dynamic Island for high-priority limits.
+	•	Rollover option: unspent budget rolls into next month
+	•	Shared budgets: for couples or teams (via iCloud Family Sharing invitation)
+	•	Emergency pause: one tap to pause all non-essential budget tracking temporarily
+5.4 Investment Snapshot
+A single read-only dashboard showing total net worth, asset allocation (pie chart), and daily P&L. Broken down by: Cash & Savings, Stocks & MFs, Crypto, Other assets (manual entry).
+5.5 Subscription Overload Detection
+AI Insight
+If a recurring subscription transaction is detected and there has been no task, note, or calendar event referencing the service in the past 30 days, the app flags it as 'Potentially Unused' and prompts: 'You haven't used Netflix-related tasks or notes this month. Still want to keep this subscription?'
+
+
+6. Module 4 — Knowledge & Notes
+6.1 Quick Capture
+The fastest path to capture a thought. Target: captured in under 3 seconds from any context.
+	•	Dynamic Island long-press — opens a floating capture bar without leaving current app
+	•	Siri Shortcut — 'Hey Siri, quick note in LifeOS: [text]'
+	•	Voice memo — 1-tap mic button transcribes via Apple Speech framework, saves as note
+	•	Home Screen widget — single text field, tap and type, auto-saves
+	•	Action Extension — share any webpage, screenshot, or text from any app into LifeOS
+6.2 Bi-directional Linking
+Notes, tasks, and calendar events can reference each other using [[double bracket]] syntax or the @ mention picker. Links are bi-directional — a note linked to a task shows up in that task's detail view as 'Related Notes', and vice versa.
+	•	Example: Note 'System Architecture Plan' linked to Task 'Build REST API' — both show the connection
+	•	Graph view (Pro only): a visual network map of all linked items
+6.3 Web Clipper
+Via iOS Share Sheet Extension. Clips title, URL, selected text, and optionally a full-page screenshot. Saves into the Notes module with the source URL preserved. Supports clipping to a specific project or note for context.
+
+
+7. Advanced AI Scenarios
+7.1 Burnout Detection
+The AI monitors task completion patterns. If a user has missed 3 or more deadlines within a single day, the system detects the overload pattern and presents a proactive intervention dialog.
+UI Behaviour
+A card appears: 'You seem overloaded today — you've missed 3 deadlines. Should I move all non-urgent tasks to tomorrow and protect the rest of your afternoon?' with options: [Yes, Reschedule] [Let me choose] [Not now]. This action is reversible with one tap within 60 seconds.
+7.2 The Group Trip Mode
+When a user creates a Project tagged 'Travel', the app activates a multi-domain coordination mode:
+	•	Time module: imports flight/hotel confirmation emails (Mail app integration) into the calendar automatically
+	•	Tasks module: generates a smart packing list based on destination, trip duration, and user's past travel projects
+	•	Finance module: creates a shared expense pool where costs can be assigned to trip participants and split evenly or by custom ratios
+	•	Finance module: real-time FX rates displayed for international destinations
+7.3 Context Switching via GPS
+Using CoreLocation geofences, the app detects when the user arrives at or departs from saved locations (University, Office, Gym, Home) and automatically:
+	•	Surfaces the task list associated with that location profile
+	•	Hides task lists from unrelated contexts (e.g., Gaming/Personal tasks hidden at University)
+	•	Activates the matching iPhone Focus Mode if permitted
+	•	Triggers a Live Activity on the Dynamic Island showing the active context and top 3 tasks
+Privacy Note
+All location data is processed on-device via CoreLocation. No GPS coordinates are ever sent to LifeOS servers or stored in the cloud.
+7.4 Subscription Overload Scan
+Runs weekly as a background intelligence job. Cross-references recurring Finance transactions with activity across all modules. Flags orphan subscriptions — ones with no linked tasks, notes, or calendar events. Presents a monthly 'Subscription Audit' card with recommended cancellations and estimated annual savings.
+
+
+8. UX Design Principles
+8.1 iPhone-Native Design Language
+	•	Follows Apple Human Interface Guidelines (HIG) strictly
+	•	Dynamic Type support — all text scales with iOS accessibility text size setting
+	•	Dark Mode & Light Mode — full support with separate design tokens for each
+	•	Haptic feedback on all key interactions using UIImpactFeedbackGenerator
+	•	Swipe gestures — right swipe to complete, left swipe to reschedule on all list items
+	•	Fluid spring animations (UISpringTimingParameters) for all transitions
+8.2 Dynamic Island Usage
+Trigger
+Dynamic Island Content
+Tap Action
+Active Pomodoro timer running
+Countdown ring + task name
+Expand to full timer controls
+Budget 80% alert
+Category icon + amount left
+Open Finance module
+AI reschedule suggestion
+⚡ icon + 'Reschedule?' text
+Accept or dismiss inline
+Live time block active
+Task icon + remaining time
+Mark complete or skip
+Group trip expense added
+₹ icon + 'New expense' label
+Open Finance split view
+8.3 Widgets
+All widgets are interactive (iOS 17 interactive widgets) — tasks can be checked off and quick captures can be typed directly from the Home Screen without opening the app.
+	•	Small: Daily task count + budget bar
+	•	Medium: Next 3 tasks + next calendar event
+	•	Large: Full today schedule with time blocks
+	•	Lock Screen: Active timer or next task due
+
+
+9. Monetisation & Pricing
+Tier
+Price
+Features
+Free
+₹0 / month
+Up to 3 projects, 2 calendar connections, 1 bank account, basic notes, no AI features
+Pro
+₹299 / month or ₹2,499 / year
+Unlimited everything, AI Rescheduling, Gantt view, bi-directional links, GPS context, all widgets
+Student
+₹99 / month
+All Pro features, verified via ISIC or .edu email, single device
+Family
+₹499 / month
+Pro for up to 5 family members, shared budgets and expense splits
+
+10. Privacy & Security
+	•	Sign in with Apple as primary authentication — no passwords stored by LifeOS
+	•	All financial API tokens stored in iOS Keychain — never transmitted to LifeOS servers
+	•	End-to-end encryption for CloudKit sync — only the user's iCloud account can decrypt data
+	•	On-device ML for NLP, expense categorization, and GPS geofencing — no raw personal data leaves the device
+	•	Plaid/Salt Edge tokens expire automatically; users can revoke anytime from Settings
+	•	App Tracking Transparency (ATT) compliant — no cross-app tracking
+	•	DPDP Act 2023 (India) and GDPR compliant data handling
+	•	Annual third-party security audit
+
+
+11. Development Roadmap
+Phase
+Duration
+Key Deliverables
+Phase 0: Foundation
+Weeks 1–4
+SwiftUI app shell, iCloud sync, Apple Calendar integration, basic task CRUD, CI/CD pipeline
+Phase 1: Core Modules
+Weeks 5–12
+Full Calendar module, Task module with NLP, Plaid/Salt Edge integration, basic notes
+Phase 2: AI Layer
+Weeks 13–18
+Claude API integration, AI Rescheduler, NLP task parser, Eisenhower auto-sort
+Phase 3: iOS Native
+Weeks 19–22
+Dynamic Island, Live Activities, Widgets (all sizes), Siri Shortcuts, Focus Mode integration
+Phase 4: Advanced
+Weeks 23–28
+GPS context switching, Gantt view, bi-directional links, Group Trip mode, Subscription scan
+Beta & Launch
+Weeks 29–32
+TestFlight beta (500 users), bug fixes, App Store submission, marketing site
+
+12. Out of Scope (v1.0)
+	•	Android or web application — iOS exclusive for v1.0
+	•	Team / collaborative workspaces (B2B) — personal use only
+	•	Payment initiation or bill payments via finance module
+	•	Email client integration (Gmail/Outlook inbox triage)
+	•	AI-generated weekly reports or productivity insights PDF export
+	•	macOS native app (Catalyst version may be released alongside, not in scope)
+
+LifeOS PRD v1.0  •  Confidential  •  Built for iPhone  •  iOS 17+

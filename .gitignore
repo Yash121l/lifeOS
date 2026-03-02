@@ -1,0 +1,11 @@
+# Xcode
+.DS_Store
+build/
+*.pbxproj
+*.xcworkspace
+xcuserdata/
+DerivedData/
+.build/
+
+# XcodeGen
+LifeOS.xcodeproj/
