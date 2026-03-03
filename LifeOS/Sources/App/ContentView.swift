@@ -25,7 +25,7 @@ struct ContentView: View {
             
             NotesView()
                 .tabItem {
-                    Label("Notes", systemImage: "note.text")
+                    Label("Knowledge", systemImage: "note.text")
                 }
         }
         .preferredColorScheme(.dark)
