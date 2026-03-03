@@ -3,6 +3,11 @@ import SwiftUI
 struct ContentView: View {
     var body: some View {
         TabView {
+            DashboardView()
+                .tabItem {
+                    Label("Dashboard", systemImage: "square.grid.2x2")
+                }
+            
             TimeView()
                 .tabItem {
                     Label("Time", systemImage: "calendar")
@@ -23,6 +28,7 @@ struct ContentView: View {
                     Label("Notes", systemImage: "note.text")
                 }
         }
+        .preferredColorScheme(.dark)
     }
 }
 
