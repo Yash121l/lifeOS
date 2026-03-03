@@ -27,3 +27,36 @@ targets:
         GENERATE_INFOPLIST_FILE: "YES"
         INFOPLIST_KEY_NSExtensionPointIdentifier: "com.apple.widgetkit-extension"
         SKIP_INSTALL: "YES"
+
+  LifeOSTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources: LifeOSTests
+    dependencies:
+      - target: LifeOS
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: "YES"
+
+  LifeOSUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources: LifeOSUITests
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: "YES"
+
+schemes:
+  LifeOS:
+    build:
+      targets:
+        LifeOS: all
+        LifeOSTests: [test]
+        LifeOSUITests: [test]
+    run:
+      config: Debug
+    test:
+      config: Debug
+      targets:
+        - LifeOSTests
+        - LifeOSUITests
