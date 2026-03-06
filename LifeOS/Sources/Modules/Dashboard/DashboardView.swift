@@ -6,6 +6,8 @@ struct DashboardView: View {
     @Query(sort: \TimeBlock.startTime) private var blocks: [TimeBlock]
     @Query(sort: \TransactionItem.date, order: .reverse) private var transactions: [TransactionItem]
     
+    @State private var showSettings = false
+    
     private var greeting: String {
         let hour = Calendar.current.component(.hour, from: Date())
         switch hour {
@@ -74,6 +76,21 @@ struct DashboardView: View {
             }
             .background(DSColor.background)
             .navigationTitle("Dashboard")
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        DSHaptics.selection()
+                        showSettings = true
+                    } label: {
+                        Image(systemName: "gearshape.fill")
+                            .font(.system(size: 20))
+                            .foregroundStyle(DSColor.textSecondary)
+                    }
+                }
+            }
+            .sheet(isPresented: $showSettings) {
+                SettingsView()
+            }
         }
     }
     
@@ -302,7 +319,7 @@ struct DashboardView: View {
                         .font(DSFont.captionSmall())
                         .foregroundStyle(DSColor.textTertiary)
                     
-                    Text("$\(todaySpend, specifier: "%.2f")")
+                    Text("\(SettingsManager.shared.currencySymbol)\(todaySpend, specifier: "%.2f")")
                         .font(DSFont.title())
                         .foregroundStyle(todaySpend > 0 ? DSColor.error : DSColor.textSecondary)
                 }
@@ -315,7 +332,7 @@ struct DashboardView: View {
                         .font(DSFont.captionSmall())
                         .foregroundStyle(DSColor.textTertiary)
                     
-                    Text("$10,400")
+                    Text("\(SettingsManager.shared.currencySymbol)10,400")
                         .font(DSFont.title())
                         .foregroundStyle(DSColor.success)
                 }

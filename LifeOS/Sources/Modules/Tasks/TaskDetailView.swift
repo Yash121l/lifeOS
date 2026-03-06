@@ -146,6 +146,44 @@ struct TaskDetailView: View {
                 
                 Divider().overlay(DSColor.cardBorder)
                 
+                // Add to Calendar Button
+                if task.dueDate != nil {
+                    Button {
+                        DSHaptics.medium()
+                        Task {
+                            let success = await CalendarManager.shared.addEventToCalendar(
+                                title: task.title,
+                                startDate: task.dueDate!,
+                                durationMinutes: task.timeEstimateMinutes,
+                                notes: task.notes
+                            )
+                            if success {
+                                DSHaptics.success()
+                            }
+                        }
+                    } label: {
+                        HStack(spacing: DSSpacing.xs) {
+                            Image(systemName: "calendar.badge.plus")
+                                .font(.system(size: 16, weight: .semibold))
+                            Text("Add to iOS Calendar")
+                                .font(DSFont.headline())
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, DSSpacing.md)
+                        .background(SettingsManager.shared.isCalendarSyncEnabled ? DSColor.surfaceLight : DSColor.surfaceLight.opacity(0.5))
+                        .foregroundStyle(SettingsManager.shared.isCalendarSyncEnabled ? DSColor.accent : DSColor.textTertiary)
+                        .clipShape(RoundedRectangle(cornerRadius: DSRadius.md))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: DSRadius.md)
+                                .stroke(DSColor.cardBorder, lineWidth: 1)
+                        )
+                    }
+                    .disabled(!SettingsManager.shared.isCalendarSyncEnabled)
+                    .padding(.horizontal, DSSpacing.md)
+                    
+                    Divider().overlay(DSColor.cardBorder)
+                }
+                
                 // Notes
                 VStack(alignment: .leading, spacing: DSSpacing.xs) {
                     Text("Notes")

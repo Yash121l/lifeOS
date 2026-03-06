@@ -36,7 +36,6 @@ struct TimeView: View {
                 timeGrid
             }
             .background(DSColor.background)
-            .navigationTitle("Calendar")
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     HStack(spacing: DSSpacing.sm) {
@@ -58,6 +57,7 @@ struct TimeView: View {
                         .disabled(isToday)
                         
                         Button {
+                            DSHaptics.selection()
                             showAddBlock = true
                         } label: {
                             Image(systemName: "plus.circle.fill")
@@ -66,6 +66,9 @@ struct TimeView: View {
                         }
                     }
                 }
+            }
+            .sheet(isPresented: $showAddBlock) {
+                EventEntryView()
             }
         }
     }
@@ -177,15 +180,6 @@ struct TimeView: View {
         let h = hour % 12 == 0 ? 12 : hour % 12
         let ampm = hour < 12 ? "AM" : "PM"
         return "\(h) \(ampm)"
-    }
-    
-    private func addMockBlock() {
-        let calendar = Calendar.current
-        let hour = calendar.component(.hour, from: Date())
-        let start = calendar.date(bySettingHour: hour + 1, minute: 0, second: 0, of: selectedDate) ?? selectedDate
-        let end = start.addingTimeInterval(3600)
-        let block = TimeBlock(title: "Deep Work", startTime: start, endTime: end, colorHex: "5E5CE6", blockType: "deepWork")
-        modelContext.insert(block)
     }
 }
 

@@ -56,14 +56,17 @@ struct FinanceView: View {
         NavigationStack {
             ScrollView(showsIndicators: false) {
                 VStack(spacing: DSSpacing.lg) {
-                    // Net Worth Card
-                    netWorthCard
                     
-                    // Budget Ring + Today Spend
-                    HStack(spacing: DSSpacing.sm) {
+                    // Grid Layout
+                    LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: DSSpacing.sm) {
+                        netWorthCard
                         budgetRingCard
-                        todaySpendCard
                     }
+                    
+                    todaySpendCard
+                    
+                    // Quick Actions
+                    quickActionsRow
                     
                     // AI Insight
                     aiInsightCard
@@ -74,19 +77,24 @@ struct FinanceView: View {
                     Spacer(minLength: 120)
                 }
                 .padding(.horizontal, DSSpacing.md)
+                .padding(.top, DSSpacing.sm)
             }
             .background(DSColor.background)
             .navigationTitle("Finance")
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
-                        addMockTransaction()
+                        DSHaptics.selection()
+                        showAddTransaction = true
                     } label: {
-                        Image(systemName: "plus.circle.fill")
-                            .font(.system(size: 24))
-                            .foregroundStyle(DSColor.accent)
+                        Image(systemName: "plus")
+                            .font(.system(size: 20))
+                            .foregroundStyle(DSColor.textSecondary)
                     }
                 }
+            }
+            .sheet(isPresented: $showAddTransaction) {
+                TransactionEntryView()
             }
         }
     }
@@ -102,23 +110,25 @@ struct FinanceView: View {
                 
                 Spacer()
                 
-                HStack(spacing: DSSpacing.xxs) {
+                HStack(spacing: 2) {
                     Image(systemName: "arrow.up.right")
-                        .font(.system(size: 10, weight: .bold))
+                        .font(.system(size: 8, weight: .bold))
                     Text("+2.4%")
-                        .font(DSFont.captionSmall())
+                        .font(.system(size: 10))
                 }
                 .foregroundStyle(DSColor.success)
             }
             
-            Text("$10,400.00")
-                .font(.system(size: 34, weight: .bold, design: .rounded))
+            Text(SettingsManager.shared.currencySymbol + "10,400")
+                .font(.system(size: 26, weight: .bold, design: .rounded))
                 .foregroundStyle(DSColor.textPrimary)
+                .minimumScaleFactor(0.8)
             
             // Mini chart (decorative)
             miniChart
-                .frame(height: 40)
+                .frame(height: 30)
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .glassCard(tint: DSColor.success, padding: DSSpacing.md)
     }
     
@@ -192,46 +202,53 @@ struct FinanceView: View {
                 
                 VStack(spacing: 0) {
                     Text("\(Int(budgetProgress * 100))%")
-                        .font(.system(size: 16, weight: .bold, design: .rounded))
+                        .font(.system(size: 14, weight: .bold, design: .rounded))
                         .foregroundStyle(DSColor.textPrimary)
                     Text("used")
                         .font(.system(size: 9))
                         .foregroundStyle(DSColor.textTertiary)
                 }
             }
-            .frame(width: 64, height: 64)
+            .frame(width: 50, height: 50)
             
             Text("Monthly")
                 .font(DSFont.captionSmall())
                 .foregroundStyle(DSColor.textTertiary)
         }
-        .frame(maxWidth: .infinity)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .glassCard(padding: DSSpacing.md)
     }
     
     // MARK: - Today Spend
     
     private var todaySpendCard: some View {
-        VStack(alignment: .leading, spacing: DSSpacing.sm) {
-            Text("Today")
-                .font(DSFont.captionSmall())
-                .foregroundStyle(DSColor.textTertiary)
+        HStack {
+            VStack(alignment: .leading, spacing: DSSpacing.xs) {
+                Text("Today")
+                    .font(DSFont.captionSmall())
+                    .foregroundStyle(DSColor.textTertiary)
+                Text(SettingsManager.shared.currencySymbol + String(format: "%.2f", todaySpend))
+                    .font(.system(size: 24, weight: .bold, design: .rounded))
+                    .foregroundStyle(todaySpend > 0 ? DSColor.error : DSColor.textSecondary)
+            }
             
-            Text("$\(todaySpend, specifier: "%.2f")")
-                .font(.system(size: 24, weight: .bold, design: .rounded))
-                .foregroundStyle(todaySpend > 0 ? DSColor.error : DSColor.textSecondary)
+            Spacer()
             
-            Divider().overlay(DSColor.cardBorder)
+            Divider()
+                .frame(height: 30)
+                .overlay(DSColor.cardBorder)
+                .padding(.horizontal, DSSpacing.sm)
             
-            Text("This Week")
-                .font(DSFont.captionSmall())
-                .foregroundStyle(DSColor.textTertiary)
-            
-            Text("$\(weeklySpend, specifier: "%.2f")")
-                .font(.system(size: 16, weight: .semibold, design: .rounded))
-                .foregroundStyle(DSColor.textSecondary)
+            VStack(alignment: .trailing, spacing: DSSpacing.xs) {
+                Text("This Week")
+                    .font(DSFont.captionSmall())
+                    .foregroundStyle(DSColor.textTertiary)
+                Text(SettingsManager.shared.currencySymbol + String(format: "%.2f", weeklySpend))
+                    .font(.system(size: 24, weight: .bold, design: .rounded))
+                    .foregroundStyle(DSColor.textSecondary)
+            }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(maxWidth: .infinity)
         .glassCard(tint: DSColor.error, padding: DSSpacing.md)
     }
     
@@ -260,12 +277,66 @@ struct FinanceView: View {
     }
     
     private var insightText: String {
+        let sym = SettingsManager.shared.currencySymbol
         if weeklySpend > 500 {
-            return "You've spent $\(Int(weeklySpend)) this week. Consider reducing discretionary spending."
+            return "You've spent \(sym)\(Int(weeklySpend)) this week. Consider reducing discretionary spending."
         } else if todaySpend == 0 {
             return "No spending today — great discipline! 🎯"
         } else {
             return "You're on track with your budget this month."
+        }
+    }
+    
+    // MARK: - Quick Actions
+    
+    private var quickActionsRow: some View {
+        HStack(spacing: DSSpacing.sm) {
+            Button {
+                DSHaptics.selection()
+                showAddTransaction = true
+            } label: {
+                VStack(spacing: DSSpacing.xs) {
+                    Image(systemName: "arrow.up.right")
+                        .font(.system(size: 16, weight: .bold))
+                        .foregroundStyle(DSColor.error)
+                    Text("Expense")
+                        .font(DSFont.caption())
+                        .foregroundStyle(DSColor.textSecondary)
+                }
+                .frame(maxWidth: .infinity)
+                .glassCard(padding: DSSpacing.sm)
+            }
+            
+            Button {
+                DSHaptics.selection()
+                showAddTransaction = true
+            } label: {
+                VStack(spacing: DSSpacing.xs) {
+                    Image(systemName: "arrow.down.left")
+                        .font(.system(size: 16, weight: .bold))
+                        .foregroundStyle(DSColor.success)
+                    Text("Income")
+                        .font(DSFont.caption())
+                        .foregroundStyle(DSColor.textSecondary)
+                }
+                .frame(maxWidth: .infinity)
+                .glassCard(padding: DSSpacing.sm)
+            }
+            
+            Button {
+                DSHaptics.selection()
+            } label: {
+                VStack(spacing: DSSpacing.xs) {
+                    Image(systemName: "arrow.left.arrow.right")
+                        .font(.system(size: 16, weight: .bold))
+                        .foregroundStyle(DSColor.accent)
+                    Text("Transfer")
+                        .font(DSFont.caption())
+                        .foregroundStyle(DSColor.textSecondary)
+                }
+                .frame(maxWidth: .infinity)
+                .glassCard(padding: DSSpacing.sm)
+            }
         }
     }
     
@@ -335,7 +406,7 @@ struct FinanceView: View {
             
             Spacer()
             
-            Text(tx.isExpense ? "-$\(tx.amount, specifier: "%.2f")" : "+$\(tx.amount, specifier: "%.2f")")
+            Text((tx.isExpense ? "-" : "+") + SettingsManager.shared.currencySymbol + String(format: "%.2f", tx.amount))
                 .font(.system(size: 15, weight: .semibold, design: .rounded))
                 .foregroundStyle(tx.isExpense ? DSColor.error : DSColor.success)
         }
