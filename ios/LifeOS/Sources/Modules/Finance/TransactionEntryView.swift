@@ -141,18 +141,11 @@ struct TransactionEntryView: View {
                     .glassCard(padding: 0)
                     
                     // Save Button
-                    Button {
+                    PrimaryButton("Add Transaction", style: .solid) {
                         saveTransaction()
-                    } label: {
-                        Text("Add Transaction")
-                            .font(DSFont.headline())
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, DSSpacing.md)
-                            .background(amount.isEmpty || title.isEmpty ? DSColor.surfaceLight : DSColor.accent)
-                            .foregroundStyle(amount.isEmpty || title.isEmpty ? DSColor.textTertiary : .white)
-                            .clipShape(RoundedRectangle(cornerRadius: DSRadius.md))
                     }
                     .disabled(amount.isEmpty || title.isEmpty)
+                    .opacity(amount.isEmpty || title.isEmpty ? 0.5 : 1.0)
                     .padding(.top, DSSpacing.sm)
                 }
                 .padding(.horizontal, DSSpacing.md)

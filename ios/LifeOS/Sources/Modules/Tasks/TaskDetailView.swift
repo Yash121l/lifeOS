@@ -148,8 +148,7 @@ struct TaskDetailView: View {
                 
                 // Add to Calendar Button
                 if task.dueDate != nil {
-                    Button {
-                        DSHaptics.medium()
+                    PrimaryButton("Add to iOS Calendar", icon: "calendar.badge.plus", style: .outline) {
                         Task {
                             let success = await CalendarManager.shared.addEventToCalendar(
                                 title: task.title,
@@ -161,22 +160,6 @@ struct TaskDetailView: View {
                                 DSHaptics.success()
                             }
                         }
-                    } label: {
-                        HStack(spacing: DSSpacing.xs) {
-                            Image(systemName: "calendar.badge.plus")
-                                .font(.system(size: 16, weight: .semibold))
-                            Text("Add to iOS Calendar")
-                                .font(DSFont.headline())
-                        }
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, DSSpacing.md)
-                        .background(SettingsManager.shared.isCalendarSyncEnabled ? DSColor.surfaceLight : DSColor.surfaceLight.opacity(0.5))
-                        .foregroundStyle(SettingsManager.shared.isCalendarSyncEnabled ? DSColor.accent : DSColor.textTertiary)
-                        .clipShape(RoundedRectangle(cornerRadius: DSRadius.md))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: DSRadius.md)
-                                .stroke(DSColor.cardBorder, lineWidth: 1)
-                        )
                     }
                     .disabled(!SettingsManager.shared.isCalendarSyncEnabled)
                     .padding(.horizontal, DSSpacing.md)
