@@ -3,11 +3,29 @@ options:
   bundleIdPrefix: com.yashlunawat
   deploymentTarget:
     iOS: "17.0"
+
+packages:
+  Firebase:
+    url: https://github.com/firebase/firebase-ios-sdk.git
+    from: "11.0.0"
+  GoogleSignIn:
+    url: https://github.com/google/GoogleSignIn-iOS.git
+    from: "8.0.0"
+
 targets:
   LifeOS:
     type: application
     platform: iOS
     sources: LifeOS/Sources
+    dependencies:
+      - package: Firebase
+        product: FirebaseAuth
+      - package: Firebase
+        product: FirebaseFirestore
+      - package: Firebase
+        product: FirebaseAnalytics
+      - package: GoogleSignIn
+        product: GoogleSignIn
     settings:
       base:
         GENERATE_INFOPLIST_FILE: "YES"
@@ -15,6 +33,12 @@ targets:
         INFOPLIST_KEY_NSSupportsLiveActivities: "YES"
         DEBUG_INFORMATION_FORMAT: dwarf
         SUPPORTS_MACCATALYST: "YES"
+    info:
+      path: LifeOS/Info.plist
+      properties:
+        CFBundleURLTypes:
+          - CFBundleURLSchemes:
+              - com.googleusercontent.apps.116536834156-slm340hod3qac81oiicbvia4r7n3i0p4
 
   LifeOSWidget:
     type: app-extension

@@ -1,23 +1,23 @@
 import Foundation
-import SwiftData
 
-@Model
-final class TaskItem {
+struct TaskItem: Codable, Identifiable, Hashable {
+    var id: String
+    var userId: String
     var title: String
     var priority: Int // 0: Low, 1: Medium, 2: High
     var dueDate: Date?
     var isCompleted: Bool
-    
-    // New properties for premium redesign
     var energyLevel: Int // 1: Low, 2: Medium, 3: High
     var timeEstimateMinutes: Int
     var notes: String
-    var urgency: Int // 0: Not urgent, 1: Urgent (for Eisenhower)
-    
-    @Relationship(inverse: \Project.tasks)
-    var project: Project?
+    var urgency: Int // 0: Not urgent, 1: Urgent (Eisenhower)
+    var projectId: String?
+    var createdAt: Date
+    var updatedAt: Date
     
     init(
+        id: String = UUID().uuidString,
+        userId: String = "",
         title: String,
         priority: Int = 1,
         dueDate: Date? = nil,
@@ -25,8 +25,13 @@ final class TaskItem {
         energyLevel: Int = 2,
         timeEstimateMinutes: Int = 30,
         notes: String = "",
-        urgency: Int = 0
+        urgency: Int = 0,
+        projectId: String? = nil,
+        createdAt: Date = .now,
+        updatedAt: Date = .now
     ) {
+        self.id = id
+        self.userId = userId
         self.title = title
         self.priority = priority
         self.dueDate = dueDate
@@ -35,6 +40,9 @@ final class TaskItem {
         self.timeEstimateMinutes = timeEstimateMinutes
         self.notes = notes
         self.urgency = urgency
+        self.projectId = projectId
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
     }
     
     var energyColor: String {

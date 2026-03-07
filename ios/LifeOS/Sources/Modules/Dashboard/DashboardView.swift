@@ -1,12 +1,11 @@
 import SwiftUI
-import SwiftData
 
 struct DashboardView: View {
-    @Query(sort: \TaskItem.dueDate) private var tasks: [TaskItem]
-    @Query(sort: \TimeBlock.startTime) private var blocks: [TimeBlock]
-    @Query(sort: \TransactionItem.date, order: .reverse) private var transactions: [TransactionItem]
-    
+    @State private var authService = AuthService.shared
+    @State private var store = FirestoreService.shared
     @State private var showSettings = false
+    
+    private var userId: String { authService.currentUser?.uid ?? "" }
     
     private var greeting: String {
         let hour = Calendar.current.component(.hour, from: Date())
@@ -19,7 +18,8 @@ struct DashboardView: View {
     }
     
     private var todaysBlocks: [TimeBlock] {
-        blocks.filter { Calendar.current.isDateInToday($0.startTime) }
+        store.timeBlocks
+            .filter { Calendar.current.isDateInToday($0.startTime) }
             .sorted { $0.startTime < $1.startTime }
     }
     
@@ -29,47 +29,38 @@ struct DashboardView: View {
     }
     
     private var pendingTasks: [TaskItem] {
-        tasks.filter { !$0.isCompleted }
+        Array(store.tasks
+            .filter { !$0.isCompleted }
             .sorted { ($0.priority, $0.energyLevel) > ($1.priority, $1.energyLevel) }
-            .prefix(3)
-            .map { $0 }
+            .prefix(5))
+    }
+    
+    private var completedToday: Int {
+        store.tasks.filter { $0.isCompleted && Calendar.current.isDateInToday($0.updatedAt) }.count
     }
     
     private var todaySpend: Double {
-        transactions
+        store.transactions
             .filter { $0.isExpense && Calendar.current.isDateInToday($0.date) }
             .reduce(0) { $0 + $1.amount }
     }
     
-    private var totalPendingTasks: Int {
-        tasks.filter { !$0.isCompleted }.count
-    }
-    
-    private var energyScore: Int {
-        let pending = tasks.filter { !$0.isCompleted }
-        guard !pending.isEmpty else { return 1 }
-        let avg = Double(pending.map(\.energyLevel).reduce(0, +)) / Double(pending.count)
-        return max(1, min(3, Int(avg.rounded())))
+    private var todayIncome: Double {
+        store.transactions
+            .filter { !$0.isExpense && Calendar.current.isDateInToday($0.date) }
+            .reduce(0) { $0 + $1.amount }
     }
     
     var body: some View {
         NavigationStack {
             ScrollView(showsIndicators: false) {
-                VStack(spacing: DSSpacing.lg) {
-                    // MARK: - Header
+                VStack(spacing: DSSpacing.xl) {
                     headerSection
-                    
-                    // MARK: - Timeline
+                    statsRow
                     timelineSection
-                    
-                    // MARK: - Up Next Tasks
                     upNextSection
-                    
-                    // MARK: - Finance Snapshot
                     financeSection
-                    
-                    // Bottom spacer for tab bar
-                    Spacer(minLength: 100)
+                    Spacer(minLength: 80)
                 }
                 .padding(.horizontal, DSSpacing.md)
                 .padding(.top, DSSpacing.xs)
@@ -82,9 +73,7 @@ struct DashboardView: View {
                         DSHaptics.selection()
                         showSettings = true
                     } label: {
-                        Image(systemName: "gearshape.fill")
-                            .font(.system(size: 20))
-                            .foregroundStyle(DSColor.textSecondary)
+                        DSAvatar(initials: authService.initials, size: 32)
                     }
                 }
             }
@@ -94,63 +83,59 @@ struct DashboardView: View {
         }
     }
     
-    // MARK: - Header Section
+    // MARK: - Header
     
     private var headerSection: some View {
-        VStack(alignment: .leading, spacing: DSSpacing.xs) {
-            Text(greeting + ", Yash")
-                .font(DSFont.largeTitle())
-                .foregroundStyle(DSColor.textPrimary)
+        VStack(alignment: .leading, spacing: DSSpacing.xxs) {
+            Text("\(greeting),")
+                .font(DSFont.subheadline())
+                .foregroundStyle(DSColor.textSecondary)
             
-            HStack(spacing: DSSpacing.sm) {
-                Text(Date(), format: .dateTime.weekday(.wide).month(.wide).day())
-                    .font(DSFont.subheadline())
-                    .foregroundStyle(DSColor.textSecondary)
-                
-                Spacer()
-                
-                // Energy indicator
-                HStack(spacing: DSSpacing.xxs) {
-                    Image(systemName: "bolt.fill")
-                        .font(.system(size: 11))
-                    Text(energyLabel)
-                        .font(DSFont.caption())
-                }
-                .foregroundStyle(energyColor)
-                .padding(.horizontal, DSSpacing.sm)
-                .padding(.vertical, DSSpacing.xxs)
-                .background(
-                    Capsule().fill(energyColor.opacity(0.15))
-                )
-            }
+            Text(authService.displayName)
+                .font(DSFont.largeTitle())
+                .foregroundStyle(.white)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.top, DSSpacing.xs)
     }
     
-    private var energyLabel: String {
-        switch energyScore {
-        case 1: return "Light"
-        case 3: return "Intense"
-        default: return "Moderate"
+    // MARK: - Stats Row
+    
+    private var statsRow: some View {
+        HStack(spacing: DSSpacing.sm) {
+            miniStat(value: "\(pendingTasks.count)", label: "Pending", icon: "circle", tint: DSColor.amber)
+            miniStat(value: "\(completedToday)", label: "Done", icon: "checkmark.circle.fill", tint: DSColor.success)
+            miniStat(value: "\(todaysBlocks.count)", label: "Events", icon: "calendar", tint: DSColor.cyan)
         }
     }
     
-    private var energyColor: Color {
-        switch energyScore {
-        case 1: return DSColor.energyLow
-        case 3: return DSColor.energyHigh
-        default: return DSColor.energyMedium
+    private func miniStat(value: String, label: String, icon: String, tint: Color) -> some View {
+        VStack(spacing: DSSpacing.xs) {
+            HStack(spacing: DSSpacing.xxs) {
+                Image(systemName: icon)
+                    .font(.system(size: 11))
+                    .foregroundStyle(tint)
+                Text(value)
+                    .font(DSFont.title())
+                    .foregroundStyle(.white)
+            }
+            Text(label)
+                .font(DSFont.captionSmall())
+                .foregroundStyle(DSColor.textTertiary)
         }
+        .frame(maxWidth: .infinity)
+        .glassCard(tint: tint, padding: DSSpacing.sm)
     }
     
-    // MARK: - Timeline Section
+    // MARK: - Timeline
     
     private var timelineSection: some View {
         VStack(alignment: .leading, spacing: DSSpacing.sm) {
-            sectionHeader(title: "Today's Schedule", count: todaysBlocks.count)
+            DSSectionHeader("Today's Schedule", count: todaysBlocks.count)
             
             if todaysBlocks.isEmpty {
-                emptyState(icon: "calendar", message: "No events scheduled today")
+                DSEmptyState(icon: "calendar", title: "No events today", subtitle: "Your schedule is clear")
+                    .glassCard()
             } else {
                 VStack(spacing: DSSpacing.xs) {
                     ForEach(todaysBlocks) { block in
@@ -166,7 +151,7 @@ struct DashboardView: View {
         let blockColor = Color(hex: block.colorHex)
         
         return HStack(spacing: DSSpacing.sm) {
-            // Time column
+            // Time
             VStack(alignment: .trailing, spacing: 2) {
                 Text(block.startTime, format: .dateTime.hour().minute())
                     .font(DSFont.caption())
@@ -175,19 +160,19 @@ struct DashboardView: View {
                     .font(DSFont.captionSmall())
                     .foregroundStyle(DSColor.textTertiary)
             }
-            .frame(width: 52, alignment: .trailing)
+            .frame(width: 50, alignment: .trailing)
             
-            // Accent bar
+            // Color bar
             RoundedRectangle(cornerRadius: 2)
                 .fill(blockColor)
                 .frame(width: 3)
                 .padding(.vertical, 4)
             
             // Content
-            VStack(alignment: .leading, spacing: DSSpacing.xxs) {
+            VStack(alignment: .leading, spacing: DSSpacing.xxxs) {
                 Text(block.title)
                     .font(DSFont.headline())
-                    .foregroundStyle(DSColor.textPrimary)
+                    .foregroundStyle(.white)
                 
                 HStack(spacing: DSSpacing.xs) {
                     Text(block.formattedDuration)
@@ -196,13 +181,11 @@ struct DashboardView: View {
                     
                     if isCurrent {
                         Text("NOW")
-                            .font(.system(size: 9, weight: .bold))
-                            .foregroundStyle(DSColor.accent)
+                            .font(.system(size: 9, weight: .bold, design: .rounded))
+                            .foregroundStyle(blockColor)
                             .padding(.horizontal, 6)
                             .padding(.vertical, 2)
-                            .background(
-                                Capsule().fill(DSColor.accent.opacity(0.15))
-                            )
+                            .background(Capsule().fill(blockColor.opacity(0.15)))
                     }
                 }
             }
@@ -212,27 +195,27 @@ struct DashboardView: View {
         .padding(DSSpacing.sm)
         .background(
             RoundedRectangle(cornerRadius: DSRadius.md)
-                .fill(.ultraThinMaterial)
+                .fill(DSColor.surface)
                 .overlay(
                     RoundedRectangle(cornerRadius: DSRadius.md)
-                        .fill(blockColor.opacity(isCurrent ? 0.08 : 0.03))
+                        .fill(blockColor.opacity(isCurrent ? 0.08 : 0.02))
                 )
                 .overlay(
                     RoundedRectangle(cornerRadius: DSRadius.md)
-                        .stroke(isCurrent ? blockColor.opacity(0.3) : DSColor.cardBorder, lineWidth: isCurrent ? 1 : 0.5)
+                        .stroke(isCurrent ? blockColor.opacity(0.3) : DSColor.cardBorder, lineWidth: 1)
                 )
         )
-        .shadow(color: isCurrent ? blockColor.opacity(0.15) : .clear, radius: 8, y: 2)
     }
     
-    // MARK: - Up Next Section
+    // MARK: - Up Next
     
     private var upNextSection: some View {
         VStack(alignment: .leading, spacing: DSSpacing.sm) {
-            sectionHeader(title: "Up Next", count: totalPendingTasks)
+            DSSectionHeader("Up Next", count: store.tasks.filter { !$0.isCompleted }.count)
             
             if pendingTasks.isEmpty {
-                emptyState(icon: "checkmark.circle", message: "All caught up!")
+                DSEmptyState(icon: "checkmark.circle", title: "All caught up!", subtitle: "No pending tasks")
+                    .glassCard()
             } else {
                 VStack(spacing: DSSpacing.xs) {
                     ForEach(pendingTasks) { task in
@@ -245,15 +228,22 @@ struct DashboardView: View {
     
     private func taskRow(_ task: TaskItem) -> some View {
         HStack(spacing: DSSpacing.sm) {
-            // Priority indicator
-            Circle()
-                .fill(priorityColor(task.priority))
-                .frame(width: 8, height: 8)
+            // Complete button
+            Button {
+                DSHaptics.success()
+                var updated = task
+                updated.isCompleted = true
+                Task { try? await store.saveTask(updated, userId: userId) }
+            } label: {
+                Image(systemName: task.isCompleted ? "checkmark.circle.fill" : "circle")
+                    .font(.system(size: 22))
+                    .foregroundStyle(task.isCompleted ? DSColor.success : DSColor.textTertiary)
+            }
             
             VStack(alignment: .leading, spacing: DSSpacing.xxxs) {
                 Text(task.title)
                     .font(DSFont.body())
-                    .foregroundStyle(DSColor.textPrimary)
+                    .foregroundStyle(.white)
                     .lineLimit(1)
                 
                 HStack(spacing: DSSpacing.xs) {
@@ -263,28 +253,42 @@ struct DashboardView: View {
                             Text(due, format: .dateTime.month(.abbreviated).day())
                         }
                         .font(DSFont.captionSmall())
-                        .foregroundStyle(DSColor.textTertiary)
+                        .foregroundStyle(due < Date() ? DSColor.error : DSColor.textTertiary)
                     }
                     
-                    Text(task.formattedTimeEstimate)
-                        .font(DSFont.captionSmall())
-                        .foregroundStyle(DSColor.textTertiary)
+                    priorityBadge(task.priority)
                 }
             }
             
             Spacer()
             
-            // Energy dots
             energyDots(task.energyLevel)
         }
         .glassCard(padding: DSSpacing.sm)
+    }
+    
+    private func priorityBadge(_ priority: Int) -> some View {
+        let (label, color): (String, Color) = {
+            switch priority {
+            case 0: return ("Low", DSColor.success)
+            case 2: return ("High", DSColor.error)
+            default: return ("Med", DSColor.amber)
+            }
+        }()
+        
+        return Text(label)
+            .font(.system(size: 9, weight: .semibold, design: .rounded))
+            .foregroundStyle(color)
+            .padding(.horizontal, 5)
+            .padding(.vertical, 2)
+            .background(Capsule().fill(color.opacity(0.12)))
     }
     
     private func energyDots(_ level: Int) -> some View {
         HStack(spacing: 3) {
             ForEach(1...3, id: \.self) { i in
                 Circle()
-                    .fill(i <= level ? energyDotColor(level) : DSColor.textTertiary.opacity(0.3))
+                    .fill(i <= level ? energyDotColor(level) : DSColor.textTertiary.opacity(0.2))
                     .frame(width: 5, height: 5)
             }
         }
@@ -298,85 +302,28 @@ struct DashboardView: View {
         }
     }
     
-    private func priorityColor(_ priority: Int) -> Color {
-        switch priority {
-        case 0: return DSColor.energyLow
-        case 2: return DSColor.error
-        default: return DSColor.accent
-        }
-    }
-    
-    // MARK: - Finance Section
+    // MARK: - Finance
     
     private var financeSection: some View {
         VStack(alignment: .leading, spacing: DSSpacing.sm) {
-            sectionHeader(title: "Finance", count: nil)
+            DSSectionHeader("Finance")
             
             HStack(spacing: DSSpacing.sm) {
-                // Today's spend
-                VStack(alignment: .leading, spacing: DSSpacing.xs) {
-                    Text("Today")
-                        .font(DSFont.captionSmall())
-                        .foregroundStyle(DSColor.textTertiary)
-                    
-                    Text("\(SettingsManager.shared.currencySymbol)\(todaySpend, specifier: "%.2f")")
-                        .font(DSFont.title())
-                        .foregroundStyle(todaySpend > 0 ? DSColor.error : DSColor.textSecondary)
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .glassCard(tint: DSColor.error, padding: DSSpacing.md)
+                DSStatCard(
+                    title: "Today's Spend",
+                    value: "₹\(String(format: "%.0f", todaySpend))",
+                    icon: "arrow.up.right",
+                    tint: todaySpend > 0 ? DSColor.error : DSColor.textTertiary
+                )
                 
-                // Net worth
-                VStack(alignment: .leading, spacing: DSSpacing.xs) {
-                    Text("Net Worth")
-                        .font(DSFont.captionSmall())
-                        .foregroundStyle(DSColor.textTertiary)
-                    
-                    Text("\(SettingsManager.shared.currencySymbol)10,400")
-                        .font(DSFont.title())
-                        .foregroundStyle(DSColor.success)
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .glassCard(tint: DSColor.success, padding: DSSpacing.md)
+                DSStatCard(
+                    title: "Income",
+                    value: "₹\(String(format: "%.0f", todayIncome))",
+                    icon: "arrow.down.left",
+                    tint: DSColor.success
+                )
             }
         }
-    }
-    
-    // MARK: - Helpers
-    
-    private func sectionHeader(title: String, count: Int?) -> some View {
-        HStack {
-            Text(title)
-                .font(DSFont.headline())
-                .foregroundStyle(DSColor.textPrimary)
-            
-            if let count = count, count > 0 {
-                Text("\(count)")
-                    .font(DSFont.captionSmall())
-                    .foregroundStyle(DSColor.textTertiary)
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 2)
-                    .background(
-                        Capsule().fill(DSColor.surfaceLight)
-                    )
-            }
-            
-            Spacer()
-        }
-    }
-    
-    private func emptyState(icon: String, message: String) -> some View {
-        HStack(spacing: DSSpacing.sm) {
-            Image(systemName: icon)
-                .font(.system(size: 18))
-                .foregroundStyle(DSColor.textTertiary)
-            
-            Text(message)
-                .font(DSFont.subheadline())
-                .foregroundStyle(DSColor.textTertiary)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .glassCard(padding: DSSpacing.md)
     }
 }
 

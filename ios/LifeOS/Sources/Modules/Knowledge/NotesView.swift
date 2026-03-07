@@ -1,351 +1,339 @@
 import SwiftUI
-import SwiftData
-
-enum NotesViewMode: String, CaseIterable {
-    case list = "list.bullet"
-    case grid = "square.grid.2x2"
-}
 
 struct NotesView: View {
-    @Query(sort: \NoteItem.updatedAt, order: .reverse) private var notes: [NoteItem]
-    @Environment(\.modelContext) private var modelContext
+    @State private var authService = AuthService.shared
+    @State private var store = FirestoreService.shared
     @State private var searchText = ""
-    @State private var viewMode: NotesViewMode = .list
-    @State private var selectedTag: String?
+    @State private var showGrid = true
     @State private var showEditor = false
-    @State private var editingNote: NoteItem?
+    @State private var selectedNote: NoteItem?
     
-    private var filteredNotes: [NoteItem] {
-        var result = notes
-        
-        if !searchText.isEmpty {
-            result = result.filter {
-                $0.title.localizedCaseInsensitiveContains(searchText) ||
-                $0.content.localizedCaseInsensitiveContains(searchText)
-            }
-        }
-        
-        if let tag = selectedTag {
-            result = result.filter { $0.tags.contains(tag) }
-        }
-        
-        // Sort pinned first
-        return result.sorted { ($0.isPinned ? 1 : 0) > ($1.isPinned ? 1 : 0) }
+    private var userId: String { authService.currentUser?.uid ?? "" }
+    
+    private var pinnedNotes: [NoteItem] {
+        store.notes.filter { $0.isPinned && matchesSearch($0) }
     }
     
-    private var allTags: [String] {
-        Array(Set(notes.flatMap(\.tags))).sorted()
+    private var otherNotes: [NoteItem] {
+        store.notes.filter { !$0.isPinned && matchesSearch($0) }
+    }
+    
+    private func matchesSearch(_ note: NoteItem) -> Bool {
+        if searchText.isEmpty { return true }
+        return note.title.localizedCaseInsensitiveContains(searchText) ||
+               note.content.localizedCaseInsensitiveContains(searchText) ||
+               note.tags.contains { $0.localizedCaseInsensitiveContains(searchText) }
     }
     
     var body: some View {
         NavigationStack {
-            VStack(spacing: 0) {
-                // Search
-                searchBar
-                
-                // Tags
-                if !allTags.isEmpty {
-                    tagsPicker
-                }
-                
-                // Content
-                if filteredNotes.isEmpty {
-                    emptyState
-                } else {
-                    contentView
-                }
-            }
-            .background(DSColor.background)
-            .navigationTitle("Knowledge")
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
+            ZStack(alignment: .bottomTrailing) {
+                VStack(spacing: 0) {
+                    // Search + view toggle
                     HStack(spacing: DSSpacing.sm) {
+                        HStack(spacing: DSSpacing.xs) {
+                            Image(systemName: DSIcon.search)
+                                .foregroundStyle(DSColor.textTertiary)
+                            TextField("Search notes...", text: $searchText)
+                                .font(DSFont.body())
+                                .foregroundStyle(DSColor.textPrimary)
+                        }
+                        .padding(DSSpacing.sm)
+                        .background(
+                            RoundedRectangle(cornerRadius: DSRadius.md)
+                                .fill(DSColor.surfaceElevated)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: DSRadius.md)
+                                        .stroke(DSColor.cardBorder, lineWidth: 1)
+                                )
+                        )
+                        
                         Button {
                             DSHaptics.selection()
-                            withAnimation(DSAnimation.springQuick) {
-                                viewMode = viewMode == .list ? .grid : .list
-                            }
+                            withAnimation(DSAnimation.springQuick) { showGrid.toggle() }
                         } label: {
-                            Image(systemName: viewMode.rawValue)
-                                .font(.system(size: 16))
+                            Image(systemName: showGrid ? "list.bullet" : "square.grid.2x2")
+                                .font(.system(size: 18))
                                 .foregroundStyle(DSColor.textSecondary)
-                                .frame(width: 32, height: 32)
-                                .background(Circle().fill(DSColor.surfaceLight))
-                        }
-                        
-                        Button {
-                            editingNote = nil
-                            showEditor = true
-                        } label: {
-                            Image(systemName: "plus.circle.fill")
-                                .font(.system(size: 24))
-                                .foregroundStyle(DSColor.accent)
-                        }
-                    }
-                }
-            }
-            .sheet(isPresented: $showEditor) {
-                NavigationStack {
-                    NoteEditorView(note: editingNote ?? NoteItem(title: "", content: ""))
-                }
-                .presentationDetents([.large])
-                .presentationDragIndicator(.visible)
-            }
-        }
-    }
-    
-    // MARK: - Search
-    
-    private var searchBar: some View {
-        HStack(spacing: DSSpacing.sm) {
-            Image(systemName: "magnifyingglass")
-                .font(.system(size: 14))
-                .foregroundStyle(DSColor.textTertiary)
-            
-            TextField("Search notes...", text: $searchText)
-                .font(DSFont.subheadline())
-                .foregroundStyle(DSColor.textPrimary)
-                .tint(DSColor.accent)
-            
-            if !searchText.isEmpty {
-                Button {
-                    searchText = ""
-                } label: {
-                    Image(systemName: "xmark.circle.fill")
-                        .font(.system(size: 14))
-                        .foregroundStyle(DSColor.textTertiary)
-                }
-            }
-        }
-        .padding(.horizontal, DSSpacing.md)
-        .padding(.vertical, DSSpacing.sm)
-        .background(
-            RoundedRectangle(cornerRadius: DSRadius.md)
-                .fill(.ultraThinMaterial)
-                .overlay(
-                    RoundedRectangle(cornerRadius: DSRadius.md)
-                        .stroke(DSColor.cardBorder, lineWidth: 0.5)
-                )
-        )
-        .padding(.horizontal, DSSpacing.md)
-    }
-    
-    // MARK: - Tags
-    
-    private var tagsPicker: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: DSSpacing.xs) {
-                // All tag
-                tagChip(label: "All", isSelected: selectedTag == nil) {
-                    selectedTag = nil
-                }
-                
-                ForEach(allTags, id: \.self) { tag in
-                    tagChip(label: tag, isSelected: selectedTag == tag) {
-                        selectedTag = selectedTag == tag ? nil : tag
-                    }
-                }
-            }
-            .padding(.horizontal, DSSpacing.md)
-            .padding(.vertical, DSSpacing.sm)
-        }
-    }
-    
-    private func tagChip(label: String, isSelected: Bool, action: @escaping () -> Void) -> some View {
-        Button {
-            DSHaptics.selection()
-            withAnimation(DSAnimation.springQuick) {
-                action()
-            }
-        } label: {
-            Text(label)
-                .font(DSFont.captionSmall())
-                .foregroundStyle(isSelected ? .white : DSColor.textSecondary)
-                .padding(.horizontal, DSSpacing.sm)
-                .padding(.vertical, DSSpacing.xxs)
-                .background(
-                    Capsule().fill(isSelected ? DSColor.accent : DSColor.surfaceLight)
-                )
-        }
-        .buttonStyle(.plain)
-    }
-    
-    // MARK: - Content
-    
-    @ViewBuilder
-    private var contentView: some View {
-        ScrollView(showsIndicators: false) {
-            switch viewMode {
-            case .list:
-                LazyVStack(spacing: DSSpacing.xs) {
-                    ForEach(filteredNotes) { note in
-                        noteListRow(note)
-                    }
-                }
-                .padding(.horizontal, DSSpacing.md)
-                .padding(.bottom, 120)
-                
-            case .grid:
-                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: DSSpacing.sm) {
-                    ForEach(filteredNotes) { note in
-                        noteGridCard(note)
-                    }
-                }
-                .padding(.horizontal, DSSpacing.md)
-                .padding(.bottom, 120)
-            }
-        }
-    }
-    
-    private func noteListRow(_ note: NoteItem) -> some View {
-        Button {
-            editingNote = note
-            showEditor = true
-        } label: {
-            HStack(spacing: DSSpacing.sm) {
-                VStack(alignment: .leading, spacing: DSSpacing.xxs) {
-                    HStack(spacing: DSSpacing.xxs) {
-                        if note.isPinned {
-                            Image(systemName: "pin.fill")
-                                .font(.system(size: 10))
-                                .foregroundStyle(DSColor.warning)
-                        }
-                        
-                        Text(note.title)
-                            .font(DSFont.headline())
-                            .foregroundStyle(DSColor.textPrimary)
-                            .lineLimit(1)
-                    }
-                    
-                    if !note.content.isEmpty {
-                        Text(note.preview)
-                            .font(DSFont.captionSmall())
-                            .foregroundStyle(DSColor.textTertiary)
-                            .lineLimit(2)
-                    }
-                    
-                    HStack(spacing: DSSpacing.xs) {
-                        Text(note.updatedAt, format: .dateTime.month(.abbreviated).day())
-                            .font(.system(size: 10))
-                            .foregroundStyle(DSColor.textTertiary)
-                        
-                        ForEach(note.tags.prefix(2), id: \.self) { tag in
-                            Text(tag)
-                                .font(.system(size: 9))
-                                .foregroundStyle(DSColor.accent)
-                                .padding(.horizontal, 5)
-                                .padding(.vertical, 1)
+                                .frame(width: 40, height: 40)
                                 .background(
-                                    Capsule().fill(DSColor.accent.opacity(0.1))
+                                    RoundedRectangle(cornerRadius: DSRadius.sm)
+                                        .fill(DSColor.surfaceElevated)
                                 )
                         }
                     }
+                    .padding(.horizontal, DSSpacing.md)
+                    .padding(.top, DSSpacing.xs)
+                    .padding(.bottom, DSSpacing.sm)
+                    
+                    if store.notes.isEmpty && searchText.isEmpty {
+                        VStack {
+                            DSEmptyState(
+                                icon: "note.text",
+                                title: "No notes yet",
+                                subtitle: "Capture your thoughts and ideas",
+                                actionTitle: "New Note"
+                            ) {
+                                showEditor = true
+                            }
+                            .glassCard()
+                            Spacer()
+                        }
+                        .padding(.horizontal, DSSpacing.md)
+                    } else if showGrid {
+                        // Grid view with context menus
+                        ScrollView(showsIndicators: false) {
+                            VStack(spacing: DSSpacing.lg) {
+                                if !pinnedNotes.isEmpty {
+                                    VStack(alignment: .leading, spacing: DSSpacing.sm) {
+                                        DSSectionHeader("Pinned", count: pinnedNotes.count)
+                                        notesGrid(pinnedNotes)
+                                    }
+                                }
+                                
+                                if !otherNotes.isEmpty {
+                                    VStack(alignment: .leading, spacing: DSSpacing.sm) {
+                                        DSSectionHeader("Notes", count: otherNotes.count)
+                                        notesGrid(otherNotes)
+                                    }
+                                }
+                                
+                                Spacer(minLength: 100)
+                            }
+                            .padding(.horizontal, DSSpacing.md)
+                        }
+                    } else {
+                        // List view with swipe actions
+                        List {
+                            if !pinnedNotes.isEmpty {
+                                Section {
+                                    ForEach(pinnedNotes) { note in
+                                        noteListRow(note)
+                                            .onTapGesture {
+                                                DSHaptics.selection()
+                                                selectedNote = note
+                                            }
+                                            .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                                                Button(role: .destructive) {
+                                                    DSHaptics.error()
+                                                    Task { try? await store.deleteNote(note.id, userId: userId) }
+                                                } label: {
+                                                    Label("Delete", systemImage: "trash")
+                                                }
+                                            }
+                                            .swipeActions(edge: .leading, allowsFullSwipe: true) {
+                                                Button {
+                                                    DSHaptics.selection()
+                                                    var updated = note
+                                                    updated.isPinned = false
+                                                    Task { try? await store.saveNote(updated, userId: userId) }
+                                                } label: {
+                                                    Label("Unpin", systemImage: "pin.slash")
+                                                }
+                                                .tint(DSColor.amber)
+                                            }
+                                            .listRowBackground(Color.clear)
+                                            .listRowSeparator(.hidden)
+                                            .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
+                                    }
+                                } header: {
+                                    DSSectionHeader("Pinned", count: pinnedNotes.count)
+                                        .listRowInsets(EdgeInsets(top: 0, leading: 16, bottom: 0, trailing: 16))
+                                }
+                            }
+                            
+                            if !otherNotes.isEmpty {
+                                Section {
+                                    ForEach(otherNotes) { note in
+                                        noteListRow(note)
+                                            .onTapGesture {
+                                                DSHaptics.selection()
+                                                selectedNote = note
+                                            }
+                                            .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                                                Button(role: .destructive) {
+                                                    DSHaptics.error()
+                                                    Task { try? await store.deleteNote(note.id, userId: userId) }
+                                                } label: {
+                                                    Label("Delete", systemImage: "trash")
+                                                }
+                                            }
+                                            .swipeActions(edge: .leading, allowsFullSwipe: true) {
+                                                Button {
+                                                    DSHaptics.selection()
+                                                    var updated = note
+                                                    updated.isPinned = true
+                                                    Task { try? await store.saveNote(updated, userId: userId) }
+                                                } label: {
+                                                    Label("Pin", systemImage: "pin")
+                                                }
+                                                .tint(DSColor.amber)
+                                            }
+                                            .listRowBackground(Color.clear)
+                                            .listRowSeparator(.hidden)
+                                            .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
+                                    }
+                                } header: {
+                                    DSSectionHeader("Notes", count: otherNotes.count)
+                                        .listRowInsets(EdgeInsets(top: 0, leading: 16, bottom: 0, trailing: 16))
+                                }
+                            }
+                        }
+                        .listStyle(.plain)
+                        .scrollContentBackground(.hidden)
+                    }
                 }
+                .background(DSColor.background)
                 
-                Spacer()
-                
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 12))
-                    .foregroundStyle(DSColor.textTertiary)
+                // FAB
+                Button {
+                    DSHaptics.medium()
+                    showEditor = true
+                } label: {
+                    Image(systemName: "plus")
+                        .font(.system(size: 22, weight: .bold))
+                        .foregroundStyle(.white)
+                        .frame(width: 56, height: 56)
+                        .background(Circle().fill(DSGradient.accent))
+                        .shadow(color: DSColor.accent.opacity(0.4), radius: 12, y: 4)
+                }
+                .padding(.trailing, DSSpacing.lg)
+                .padding(.bottom, DSSpacing.lg)
             }
-            .glassCard(padding: DSSpacing.sm)
+            .navigationTitle("Notes")
+            .sheet(isPresented: $showEditor) {
+                NoteEditorView(note: nil)
+            }
+            .sheet(item: $selectedNote) { note in
+                NoteEditorView(note: note)
+            }
         }
-        .buttonStyle(.plain)
+    }
+    
+    // MARK: - Grid Layout
+    
+    private func notesGrid(_ notes: [NoteItem]) -> some View {
+        let columns = [GridItem(.flexible(), spacing: DSSpacing.xs), GridItem(.flexible(), spacing: DSSpacing.xs)]
+        
+        return LazyVGrid(columns: columns, spacing: DSSpacing.xs) {
+            ForEach(notes) { note in
+                noteGridCard(note)
+                    .onTapGesture {
+                        DSHaptics.selection()
+                        selectedNote = note
+                    }
+                    .contextMenu {
+                        Button {
+                            DSHaptics.selection()
+                            var updated = note
+                            updated.isPinned.toggle()
+                            Task { try? await store.saveNote(updated, userId: userId) }
+                        } label: {
+                            Label(
+                                note.isPinned ? "Unpin" : "Pin",
+                                systemImage: note.isPinned ? "pin.slash.fill" : "pin.fill"
+                            )
+                        }
+                        
+                        Divider()
+                        
+                        Button(role: .destructive) {
+                            DSHaptics.error()
+                            Task { try? await store.deleteNote(note.id, userId: userId) }
+                        } label: {
+                            Label("Delete", systemImage: "trash.fill")
+                        }
+                    }
+            }
+        }
     }
     
     private func noteGridCard(_ note: NoteItem) -> some View {
-        Button {
-            editingNote = note
-            showEditor = true
-        } label: {
-            VStack(alignment: .leading, spacing: DSSpacing.xs) {
-                HStack {
-                    if note.isPinned {
-                        Image(systemName: "pin.fill")
-                            .font(.system(size: 10))
-                            .foregroundStyle(DSColor.warning)
-                    }
-                    Spacer()
-                    Text(note.updatedAt, format: .dateTime.month(.abbreviated).day())
-                        .font(.system(size: 9))
-                        .foregroundStyle(DSColor.textTertiary)
-                }
-                
-                Text(note.title)
+        VStack(alignment: .leading, spacing: DSSpacing.xs) {
+            HStack {
+                Text(note.title.isEmpty ? "Untitled" : note.title)
                     .font(DSFont.headline())
-                    .foregroundStyle(DSColor.textPrimary)
-                    .lineLimit(2)
-                    .multilineTextAlignment(.leading)
-                
-                if !note.content.isEmpty {
-                    Text(note.preview)
-                        .font(DSFont.captionSmall())
-                        .foregroundStyle(DSColor.textTertiary)
-                        .lineLimit(3)
-                        .multilineTextAlignment(.leading)
-                }
+                    .foregroundStyle(.white)
+                    .lineLimit(1)
                 
                 Spacer()
                 
-                if !note.tags.isEmpty {
-                    HStack(spacing: 4) {
-                        ForEach(note.tags.prefix(2), id: \.self) { tag in
-                            Text(tag)
-                                .font(.system(size: 9))
-                                .foregroundStyle(DSColor.accent)
-                                .padding(.horizontal, 5)
-                                .padding(.vertical, 1)
-                                .background(
-                                    Capsule().fill(DSColor.accent.opacity(0.1))
-                                )
-                        }
+                if note.isPinned {
+                    Image(systemName: DSIcon.pinned)
+                        .font(.system(size: 10))
+                        .foregroundStyle(DSColor.amber)
+                }
+            }
+            
+            Text(note.preview.isEmpty ? "No content" : note.preview)
+                .font(DSFont.captionSmall())
+                .foregroundStyle(DSColor.textTertiary)
+                .lineLimit(4)
+            
+            Spacer(minLength: 0)
+            
+            if !note.tags.isEmpty {
+                HStack(spacing: DSSpacing.xxs) {
+                    ForEach(note.tags.prefix(2), id: \.self) { tag in
+                        Text("#\(tag)")
+                            .font(.system(size: 9, weight: .medium))
+                            .foregroundStyle(DSColor.accent)
+                            .padding(.horizontal, 4)
+                            .padding(.vertical, 2)
+                            .background(Capsule().fill(DSColor.accent.opacity(0.1)))
                     }
                 }
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .frame(minHeight: 130)
-            .glassCard(padding: DSSpacing.sm)
+            
+            Text(note.updatedAt, format: .dateTime.month(.abbreviated).day())
+                .font(.system(size: 9))
+                .foregroundStyle(DSColor.textTertiary)
         }
-        .buttonStyle(.plain)
+        .frame(minHeight: 120)
+        .glassCard(padding: DSSpacing.sm)
     }
     
-    // MARK: - Empty State
+    // MARK: - List Row
     
-    private var emptyState: some View {
-        VStack(spacing: DSSpacing.md) {
-            Spacer()
-            
-            Image(systemName: "note.text")
-                .font(.system(size: 40))
-                .foregroundStyle(DSColor.textTertiary)
-            
-            Text("No notes yet")
-                .font(DSFont.headline())
-                .foregroundStyle(DSColor.textSecondary)
-            
-            Text("Capture your thoughts, ideas, and knowledge.")
-                .font(DSFont.subheadline())
-                .foregroundStyle(DSColor.textTertiary)
-                .multilineTextAlignment(.center)
-            
-            Button {
-                editingNote = nil
-                showEditor = true
-            } label: {
-                Text("Create Note")
-                    .font(DSFont.caption())
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, DSSpacing.lg)
-                    .padding(.vertical, DSSpacing.sm)
-                    .background(Capsule().fill(DSColor.accent))
+    private func noteListRow(_ note: NoteItem) -> some View {
+        HStack(spacing: DSSpacing.sm) {
+            VStack(alignment: .leading, spacing: DSSpacing.xxxs) {
+                HStack(spacing: DSSpacing.xs) {
+                    if note.isPinned {
+                        Image(systemName: DSIcon.pinned)
+                            .font(.system(size: 10))
+                            .foregroundStyle(DSColor.amber)
+                    }
+                    Text(note.title.isEmpty ? "Untitled" : note.title)
+                        .font(DSFont.body())
+                        .foregroundStyle(.white)
+                        .lineLimit(1)
+                }
+                
+                Text(note.preview.isEmpty ? "No content" : note.preview)
+                    .font(DSFont.captionSmall())
+                    .foregroundStyle(DSColor.textTertiary)
+                    .lineLimit(1)
+                
+                HStack(spacing: DSSpacing.xs) {
+                    Text(note.updatedAt, format: .dateTime.month(.abbreviated).day())
+                        .font(.system(size: 9))
+                        .foregroundStyle(DSColor.textTertiary)
+                    
+                    ForEach(note.tags.prefix(2), id: \.self) { tag in
+                        Text("#\(tag)")
+                            .font(.system(size: 9, weight: .medium))
+                            .foregroundStyle(DSColor.accent)
+                    }
+                }
             }
             
             Spacer()
+            
+            Image(systemName: "chevron.right")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(DSColor.textTertiary)
         }
-        .padding(.horizontal, DSSpacing.xxl)
+        .glassCard(padding: DSSpacing.sm)
     }
-}
-
-#Preview {
-    NotesView()
 }

@@ -1,27 +1,33 @@
 import Foundation
-import SwiftData
 
-@Model
-final class TimeBlock {
+struct TimeBlock: Codable, Identifiable, Hashable {
+    var id: String
+    var userId: String
     var title: String
     var startTime: Date
     var endTime: Date
     var colorHex: String
     var isCompleted: Bool
     var blockType: String // deepWork, meeting, personal, routine
-    
-    // Optional link to a task
     var linkedTaskId: String?
+    var createdAt: Date
+    var updatedAt: Date
     
     init(
+        id: String = UUID().uuidString,
+        userId: String = "",
         title: String,
         startTime: Date,
         endTime: Date,
         linkedTaskId: String? = nil,
         colorHex: String = "007AFF",
         isCompleted: Bool = false,
-        blockType: String = "deepWork"
+        blockType: String = "deepWork",
+        createdAt: Date = .now,
+        updatedAt: Date = .now
     ) {
+        self.id = id
+        self.userId = userId
         self.title = title
         self.startTime = startTime
         self.endTime = endTime
@@ -29,6 +35,8 @@ final class TimeBlock {
         self.colorHex = colorHex
         self.isCompleted = isCompleted
         self.blockType = blockType
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
     }
     
     var durationMinutes: Int {

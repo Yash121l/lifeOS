@@ -1,5 +1,4 @@
 import Foundation
-import SwiftData
 
 class NLPTaskParser {
     static func parse(input: String) -> TaskItem {

@@ -1,10 +1,12 @@
 import SwiftUI
-import SwiftData
 
 struct TaskNLPInputView: View {
-    @Environment(\.modelContext) private var modelContext
+    @State private var authService = AuthService.shared
+    @State private var store = FirestoreService.shared
     @State private var textInput: String = ""
     @State private var isProcessing = false
+    
+    private var userId: String { authService.currentUser?.uid ?? "" }
     
     var body: some View {
         HStack(spacing: DSSpacing.sm) {
@@ -36,7 +38,7 @@ struct TaskNLPInputView: View {
         .padding(.vertical, DSSpacing.sm)
         .background(
             RoundedRectangle(cornerRadius: DSRadius.lg)
-                .fill(.ultraThinMaterial)
+                .fill(DSColor.surfaceElevated)
                 .overlay(
                     RoundedRectangle(cornerRadius: DSRadius.lg)
                         .stroke(textInput.isEmpty ? DSColor.cardBorder : DSColor.accent.opacity(0.3), lineWidth: 0.5)
@@ -50,7 +52,9 @@ struct TaskNLPInputView: View {
         DSHaptics.success()
         
         let newTask = NLPTaskParser.parse(input: textInput)
-        modelContext.insert(newTask)
+        Task {
+            try? await store.saveTask(newTask, userId: userId)
+        }
         
         withAnimation(DSAnimation.springQuick) {
             textInput = ""

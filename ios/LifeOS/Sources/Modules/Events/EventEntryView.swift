@@ -1,192 +1,162 @@
 import SwiftUI
-import SwiftData
 
 struct EventEntryView: View {
-    @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
+    @State private var authService = AuthService.shared
+    @State private var store = FirestoreService.shared
     
-    @State private var title: String = ""
-    @State private var startTime: Date = Date()
-    @State private var endTime: Date = Date().addingTimeInterval(3600)
-    @State private var blockCategory: BlockCategory = .deepWork
-    @State private var syncToAppleCalendar: Bool = SettingsManager.shared.isCalendarSyncEnabled
+    @State private var title = ""
+    @State private var startTime = Date()
+    @State private var endTime = Date().addingTimeInterval(3600)
+    @State private var selectedType = "deepWork"
     
-    enum BlockCategory: String, CaseIterable {
-        case deepWork = "Deep Work"
-        case meeting = "Meeting"
-        case personal = "Personal"
-        case routine = "Routine"
-        
-        var colorHex: String {
-            switch self {
-            case .deepWork: return "5E5CE6"
-            case .meeting: return "FF9F0A"
-            case .personal: return "30D158"
-            case .routine: return "636366"
-            }
-        }
-        
-        var icon: String {
-            switch self {
-            case .deepWork: return "brain.head.profile"
-            case .meeting: return "person.2.fill"
-            case .personal: return "figure.mind.and.body"
-            case .routine: return "arrow.triangle.2.circlepath"
-            }
-        }
-        
-        var identifier: String {
-            switch self {
-            case .deepWork: return "deepWork"
-            case .meeting: return "meeting"
-            case .personal: return "personal"
-            case .routine: return "routine"
-            }
-        }
+    private var userId: String { authService.currentUser?.uid ?? "" }
+    
+    private let blockTypes: [(String, String, String, Color)] = [
+        ("deepWork", "Deep Work", "brain.head.profile", Color(hex: "6C5CE7")),
+        ("meeting", "Meeting", "person.2.fill", Color(hex: "FDCB6E")),
+        ("personal", "Personal", "heart.fill", Color(hex: "00B894")),
+        ("routine", "Routine", "arrow.triangle.2.circlepath", Color(hex: "636E72"))
+    ]
+    
+    private var selectedColor: String {
+        blockTypes.first { $0.0 == selectedType }?.3.toHex() ?? "6C5CE7"
     }
     
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(spacing: DSSpacing.lg) {
-                    
-                    // Title Input
+                VStack(spacing: DSSpacing.xl) {
+                    // Title
                     VStack(alignment: .leading, spacing: DSSpacing.xs) {
-                        Text("Event Title")
+                        Text("EVENT NAME")
                             .font(DSFont.captionSmall())
                             .foregroundStyle(DSColor.textTertiary)
-                        
-                        TextField("What's happening?", text: $title)
-                            .font(.system(size: 28, weight: .bold, design: .rounded))
-                            .foregroundStyle(DSColor.textPrimary)
-                            .tint(DSColor.accent)
+                        DSTextField(placeholder: "What are you working on?", text: $title)
                     }
-                    .padding(.top, DSSpacing.lg)
                     
-                    // Category Picker
-                    VStack(alignment: .leading, spacing: DSSpacing.sm) {
-                        Text("Category")
+                    // Block type
+                    VStack(alignment: .leading, spacing: DSSpacing.xs) {
+                        Text("TYPE")
                             .font(DSFont.captionSmall())
                             .foregroundStyle(DSColor.textTertiary)
                         
-                        LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: DSSpacing.xs) {
-                            ForEach(BlockCategory.allCases, id: \.self) { category in
-                                let isSelected = blockCategory == category
-                                let color = Color(hex: category.colorHex)
-                                
+                        HStack(spacing: DSSpacing.xs) {
+                            ForEach(blockTypes, id: \.0) { type, label, icon, color in
                                 Button {
                                     DSHaptics.selection()
-                                    blockCategory = category
+                                    withAnimation(DSAnimation.springQuick) { selectedType = type }
                                 } label: {
-                                    HStack(spacing: DSSpacing.xs) {
-                                        Image(systemName: category.icon)
-                                            .font(.system(size: 14))
-                                        Text(category.rawValue)
-                                            .font(DSFont.caption())
-                                            .fontWeight(.medium)
+                                    VStack(spacing: DSSpacing.xxs) {
+                                        Image(systemName: icon)
+                                            .font(.system(size: 18))
+                                            .foregroundStyle(selectedType == type ? .white : color)
+                                        Text(label)
+                                            .font(.system(size: 10, weight: .medium))
+                                            .foregroundStyle(selectedType == type ? .white : DSColor.textSecondary)
                                     }
                                     .frame(maxWidth: .infinity)
                                     .padding(.vertical, DSSpacing.sm)
-                                    .background(isSelected ? color.opacity(0.2) : DSColor.surfaceLight)
-                                    .foregroundStyle(isSelected ? color : DSColor.textSecondary)
-                                    .clipShape(RoundedRectangle(cornerRadius: DSRadius.sm))
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: DSRadius.sm)
-                                            .stroke(isSelected ? color : Color.clear, lineWidth: 1.5)
+                                    .background(
+                                        RoundedRectangle(cornerRadius: DSRadius.md)
+                                            .fill(selectedType == type ? color : color.opacity(0.08))
+                                            .overlay(
+                                                RoundedRectangle(cornerRadius: DSRadius.md)
+                                                    .stroke(selectedType == type ? color : color.opacity(0.2), lineWidth: 1)
+                                            )
                                     )
                                 }
                             }
                         }
                     }
                     
-                    // Time Range
-                    VStack(spacing: 0) {
+                    // Time pickers
+                    VStack(spacing: DSSpacing.sm) {
                         HStack {
-                            Text("Starts")
+                            Text("Start")
                                 .font(DSFont.body())
-                                .foregroundStyle(DSColor.textPrimary)
+                                .foregroundStyle(.white)
                             Spacer()
                             DatePicker("", selection: $startTime, displayedComponents: [.date, .hourAndMinute])
-                                .datePickerStyle(.compact)
-                                .tint(DSColor.accent)
                                 .labelsHidden()
+                                .tint(DSColor.accent)
                         }
-                        .padding(DSSpacing.md)
-                        
-                        Divider().overlay(DSColor.cardBorder)
+                        .glassCard(padding: DSSpacing.sm)
                         
                         HStack {
-                            Text("Ends")
+                            Text("End")
                                 .font(DSFont.body())
-                                .foregroundStyle(DSColor.textPrimary)
+                                .foregroundStyle(.white)
                             Spacer()
                             DatePicker("", selection: $endTime, in: startTime..., displayedComponents: [.date, .hourAndMinute])
-                                .datePickerStyle(.compact)
-                                .tint(DSColor.accent)
                                 .labelsHidden()
+                                .tint(DSColor.accent)
                         }
-                        .padding(DSSpacing.md)
+                        .glassCard(padding: DSSpacing.sm)
                     }
-                    .glassCard(padding: 0)
                     
-                    // Sync Configuration
-                    if SettingsManager.shared.isCalendarSyncEnabled {
-                        VStack(spacing: 0) {
-                            HStack {
-                                Image(systemName: "calendar.badge.plus")
-                                    .foregroundStyle(DSColor.accent)
-                                    .font(.system(size: 18))
-                                    .frame(width: 24)
-                                
-                                Text("Sync to iOS Calendar")
-                                    .font(DSFont.body())
-                                    .foregroundStyle(DSColor.textPrimary)
-                                
-                                Spacer()
-                                
-                                Toggle("", isOn: $syncToAppleCalendar)
-                                    .tint(Color(hex: blockCategory.colorHex))
-                                    .labelsHidden()
+                    // Duration preview
+                    let minutes = Int(endTime.timeIntervalSince(startTime) / 60)
+                    if minutes > 0 {
+                        HStack {
+                            Image(systemName: "clock")
+                                .foregroundStyle(DSColor.textTertiary)
+                            Text("Duration: \(formatDuration(minutes))")
+                                .font(DSFont.caption())
+                                .foregroundStyle(DSColor.textSecondary)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .glassCard(padding: DSSpacing.sm)
+                    }
+                    
+                    // Quick durations
+                    VStack(alignment: .leading, spacing: DSSpacing.xs) {
+                        Text("QUICK SET")
+                            .font(DSFont.captionSmall())
+                            .foregroundStyle(DSColor.textTertiary)
+                        
+                        HStack(spacing: DSSpacing.xs) {
+                            ForEach([30, 60, 90, 120], id: \.self) { mins in
+                                Button {
+                                    DSHaptics.selection()
+                                    withAnimation(DSAnimation.springQuick) {
+                                        endTime = startTime.addingTimeInterval(Double(mins) * 60)
+                                    }
+                                } label: {
+                                    Text(formatDuration(mins))
+                                        .font(DSFont.caption())
+                                        .foregroundStyle(DSColor.textSecondary)
+                                        .frame(maxWidth: .infinity)
+                                        .padding(.vertical, DSSpacing.xs)
+                                        .background(
+                                            RoundedRectangle(cornerRadius: DSRadius.sm)
+                                                .fill(DSColor.surfaceElevated)
+                                                .overlay(
+                                                    RoundedRectangle(cornerRadius: DSRadius.sm)
+                                                        .stroke(DSColor.cardBorder, lineWidth: 1)
+                                                )
+                                        )
+                                }
                             }
-                            .padding(DSSpacing.md)
                         }
-                        .glassCard(padding: 0)
                     }
-                    
-                    // Save Action
-                    Button {
-                        saveEvent()
-                    } label: {
-                        Text("Add Event")
-                            .font(DSFont.headline())
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, DSSpacing.md)
-                            .background(title.isEmpty ? DSColor.surfaceLight : Color(hex: blockCategory.colorHex))
-                            .foregroundStyle(title.isEmpty ? DSColor.textTertiary : .white)
-                            .clipShape(RoundedRectangle(cornerRadius: DSRadius.md))
-                    }
-                    .disabled(title.isEmpty)
-                    .padding(.top, DSSpacing.sm)
-                    
                 }
                 .padding(.horizontal, DSSpacing.md)
+                .padding(.vertical, DSSpacing.lg)
             }
             .background(DSColor.background)
             .navigationTitle("New Event")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    Button("Cancel") {
-                        dismiss()
-                    }
-                    .foregroundStyle(DSColor.textSecondary)
+                    Button("Cancel") { dismiss() }
+                        .foregroundStyle(DSColor.textSecondary)
                 }
-            }
-            .onChange(of: startTime) { oldValue, newValue in
-                // Automatically adjust end time to keep a 1-hour duration by default
-                // if they haven't explicitly edited the end date yet
-                if endTime <= startTime {
-                    endTime = startTime.addingTimeInterval(3600)
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Save") { saveEvent() }
+                        .font(DSFont.headline())
+                        .foregroundStyle(title.isEmpty ? DSColor.textTertiary : DSColor.accent)
+                        .disabled(title.isEmpty)
                 }
             }
         }
@@ -194,31 +164,36 @@ struct EventEntryView: View {
     }
     
     private func saveEvent() {
+        DSHaptics.success()
         let block = TimeBlock(
+            userId: userId,
             title: title,
             startTime: startTime,
             endTime: endTime,
-            colorHex: blockCategory.colorHex,
-            blockType: blockCategory.identifier
+            colorHex: selectedColor,
+            blockType: selectedType
         )
-        modelContext.insert(block)
-        DSHaptics.success()
         
-        if syncToAppleCalendar {
-            Task {
-                let durationMinutes = Int(endTime.timeIntervalSince(startTime) / 60)
-                _ = await CalendarManager.shared.addEventToCalendar(
-                    title: title,
-                    startDate: startTime,
-                    durationMinutes: durationMinutes,
-                    notes: "Created via LifeOS (Category: \(blockCategory.rawValue))"
-                )
-            }
+        Task {
+            try? await store.saveTimeBlock(block, userId: userId)
+            dismiss()
         }
-        dismiss()
+    }
+    
+    private func formatDuration(_ minutes: Int) -> String {
+        if minutes < 60 { return "\(minutes)m" }
+        let h = minutes / 60
+        let m = minutes % 60
+        return m > 0 ? "\(h)h \(m)m" : "\(h)h"
     }
 }
 
-#Preview {
-    EventEntryView()
+// Helper extension for Color to hex
+extension Color {
+    func toHex() -> String {
+        let uiColor = UIColor(self)
+        var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+        uiColor.getRed(&r, green: &g, blue: &b, alpha: &a)
+        return String(format: "%02X%02X%02X", Int(r * 255), Int(g * 255), Int(b * 255))
+    }
 }

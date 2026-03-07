@@ -1,187 +1,207 @@
 import SwiftUI
-import SwiftData
 
 struct TransactionEntryView: View {
-    @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
+    @State private var authService = AuthService.shared
+    @State private var store = FirestoreService.shared
     
-    @State private var amount: String = ""
-    @State private var title: String = ""
-    @State private var selectedCategory: String = "Food"
-    @State private var isExpense: Bool = true
-    @State private var date: Date = Date()
-    @State private var isRecurring: Bool = false
+    @State private var title = ""
+    @State private var amount = ""
+    @State private var isExpense = true
+    @State private var selectedCategory = "Other"
+    @State private var date = Date()
+    @State private var isRecurring = false
     
-    let categories = [
-        "Food", "Transport", "Shopping", "Entertainment",
-        "Bills", "Health", "Education", "Subscription",
-        "Income", "Other"
+    private var userId: String { authService.currentUser?.uid ?? "" }
+    
+    private let categories: [(String, String, Color)] = [
+        ("Food", "fork.knife", Color(hex: "FF6B6B")),
+        ("Transport", "car", Color(hex: "4ECDC4")),
+        ("Shopping", "bag", Color(hex: "A29BFE")),
+        ("Entertainment", "play.circle", Color(hex: "FDCB6E")),
+        ("Bills", "bolt", Color(hex: "FFA502")),
+        ("Health", "heart", Color(hex: "FF6348")),
+        ("Education", "book", Color(hex: "7BED9F")),
+        ("Subscription", "arrow.2.squarepath", Color(hex: "74B9FF")),
+        ("Salary", "banknote", Color(hex: "00B894")),
+        ("Other", "creditcard", Color(hex: "636E72"))
     ]
     
     var body: some View {
         NavigationStack {
-            ScrollView(showsIndicators: false) {
-                VStack(spacing: DSSpacing.lg) {
-                    
-                    // Amount Input
+            ScrollView {
+                VStack(spacing: DSSpacing.xl) {
+                    // Amount display
                     VStack(spacing: DSSpacing.xs) {
-                        Text(isExpense ? "Expense Amount" : "Income Amount")
+                        Text(isExpense ? "EXPENSE" : "INCOME")
+                            .font(DSFont.captionSmall())
+                            .foregroundStyle(isExpense ? DSColor.error : DSColor.success)
+                        
+                        HStack(alignment: .firstTextBaseline, spacing: 2) {
+                            Text("₹")
+                                .font(.system(size: 28, weight: .bold, design: .rounded))
+                                .foregroundStyle(DSColor.textTertiary)
+                            
+                            TextField("0", text: $amount)
+                                .font(.system(size: 48, weight: .bold, design: .rounded))
+                                .foregroundStyle(.white)
+                                .keyboardType(.decimalPad)
+                                .multilineTextAlignment(.center)
+                                .frame(maxWidth: 200)
+                        }
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, DSSpacing.xxl)
+                    
+                    // Type toggle
+                    HStack(spacing: 0) {
+                        Button {
+                            DSHaptics.selection()
+                            withAnimation(DSAnimation.springQuick) { isExpense = true }
+                        } label: {
+                            Text("Expense")
+                                .font(DSFont.headline())
+                                .foregroundStyle(isExpense ? .white : DSColor.textTertiary)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, DSSpacing.sm)
+                                .background(
+                                    RoundedRectangle(cornerRadius: DSRadius.md)
+                                        .fill(isExpense ? DSColor.error : .clear)
+                                )
+                        }
+                        
+                        Button {
+                            DSHaptics.selection()
+                            withAnimation(DSAnimation.springQuick) { isExpense = false }
+                        } label: {
+                            Text("Income")
+                                .font(DSFont.headline())
+                                .foregroundStyle(!isExpense ? .white : DSColor.textTertiary)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, DSSpacing.sm)
+                                .background(
+                                    RoundedRectangle(cornerRadius: DSRadius.md)
+                                        .fill(!isExpense ? DSColor.success : .clear)
+                                )
+                        }
+                    }
+                    .padding(3)
+                    .background(
+                        RoundedRectangle(cornerRadius: DSRadius.md + 3)
+                            .fill(DSColor.surfaceElevated)
+                    )
+                    
+                    // Title
+                    DSTextField(placeholder: "Description", text: $title, icon: "text.alignleft")
+                    
+                    // Category grid
+                    VStack(alignment: .leading, spacing: DSSpacing.xs) {
+                        Text("CATEGORY")
                             .font(DSFont.captionSmall())
                             .foregroundStyle(DSColor.textTertiary)
                         
-                        HStack(alignment: .firstTextBaseline, spacing: 4) {
-                            Text(SettingsManager.shared.currencySymbol)
-                                .font(.system(size: 32, weight: .semibold, design: .rounded))
-                                .foregroundStyle(DSColor.textSecondary)
-                            
-                            TextField("0.00", text: $amount)
-                                .keyboardType(.decimalPad)
-                                .font(.system(size: 48, weight: .bold, design: .rounded))
-                                .foregroundStyle(isExpense ? DSColor.error : DSColor.success)
-                                .multilineTextAlignment(.center)
-                        }
-                        
-                        // Type Toggle
-                        HStack(spacing: 0) {
-                            Button {
-                                isExpense = true
-                            } label: {
-                                Text("Expense")
-                                    .font(DSFont.caption())
+                        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: DSSpacing.xs), count: 5), spacing: DSSpacing.xs) {
+                            ForEach(categories, id: \.0) { name, icon, color in
+                                Button {
+                                    DSHaptics.selection()
+                                    withAnimation(DSAnimation.springQuick) { selectedCategory = name }
+                                } label: {
+                                    VStack(spacing: DSSpacing.xxs) {
+                                        Image(systemName: icon)
+                                            .font(.system(size: 18, weight: .light))
+                                            .foregroundStyle(selectedCategory == name ? .white : color)
+                                        Text(name)
+                                            .font(.system(size: 9, weight: .medium))
+                                            .foregroundStyle(selectedCategory == name ? .white : DSColor.textTertiary)
+                                    }
                                     .frame(maxWidth: .infinity)
-                                    .padding(.vertical, DSSpacing.xs)
-                                    .background(isExpense ? DSColor.error : Color.clear)
-                                    .foregroundStyle(isExpense ? .white : DSColor.textSecondary)
-                                    .clipShape(Capsule())
-                            }
-                            
-                            Button {
-                                isExpense = false
-                                selectedCategory = "Income"
-                            } label: {
-                                Text("Income")
-                                    .font(DSFont.caption())
-                                    .frame(maxWidth: .infinity)
-                                    .padding(.vertical, DSSpacing.xs)
-                                    .background(!isExpense ? DSColor.success : Color.clear)
-                                    .foregroundStyle(!isExpense ? .white : DSColor.textSecondary)
-                                    .clipShape(Capsule())
-                            }
-                        }
-                        .padding(2)
-                        .background(Capsule().fill(DSColor.surfaceLight))
-                        .frame(width: 200)
-                        .padding(.top, DSSpacing.sm)
-                    }
-                    .padding(.top, DSSpacing.xl)
-                    .padding(.bottom, DSSpacing.md)
-                    
-                    // Details Form
-                    VStack(spacing: 0) {
-                        // Title
-                        HStack {
-                            Text("Title")
-                                .font(DSFont.body())
-                                .foregroundStyle(DSColor.textPrimary)
-                            Spacer()
-                            TextField("What was this for?", text: $title)
-                                .multilineTextAlignment(.trailing)
-                                .foregroundStyle(DSColor.textSecondary)
-                                .tint(DSColor.accent)
-                        }
-                        .padding(DSSpacing.md)
-                        
-                        Divider().overlay(DSColor.cardBorder)
-                        
-                        // Category (Picker)
-                        HStack {
-                            Text("Category")
-                                .font(DSFont.body())
-                                .foregroundStyle(DSColor.textPrimary)
-                            Spacer()
-                            Picker("Category", selection: $selectedCategory) {
-                                ForEach(categories, id: \.self) { cat in
-                                    Text(cat).tag(cat)
+                                    .padding(.vertical, DSSpacing.sm)
+                                    .background(
+                                        RoundedRectangle(cornerRadius: DSRadius.md)
+                                            .fill(selectedCategory == name ? DSColor.accent.opacity(0.2) : DSColor.surfaceElevated)
+                                            .overlay(
+                                                RoundedRectangle(cornerRadius: DSRadius.md)
+                                                    .stroke(selectedCategory == name ? DSColor.accent.opacity(0.4) : DSColor.cardBorder, lineWidth: 1)
+                                            )
+                                    )
                                 }
                             }
-                            .tint(DSColor.accent)
-                            .labelsHidden()
                         }
-                        .padding(DSSpacing.md)
-                        
-                        Divider().overlay(DSColor.cardBorder)
-                        
-                        // Date
+                    }
+                    
+                    // Date & Recurring
+                    VStack(spacing: DSSpacing.sm) {
                         HStack {
                             Text("Date")
                                 .font(DSFont.body())
                                 .foregroundStyle(DSColor.textPrimary)
                             Spacer()
-                            DatePicker("", selection: $date, displayedComponents: [.date, .hourAndMinute])
-                                .datePickerStyle(.compact)
-                                .tint(DSColor.accent)
+                            DatePicker("", selection: $date, displayedComponents: .date)
                                 .labelsHidden()
+                                .tint(DSColor.accent)
                         }
-                        .padding(DSSpacing.md)
+                        .glassCard(padding: DSSpacing.sm)
                         
-                        Divider().overlay(DSColor.cardBorder)
-                        
-                        // Recurring
                         HStack {
-                            Text("Recurring")
-                                .font(DSFont.body())
-                                .foregroundStyle(DSColor.textPrimary)
+                            VStack(alignment: .leading, spacing: DSSpacing.xxxs) {
+                                Text("Recurring")
+                                    .font(DSFont.body())
+                                    .foregroundStyle(DSColor.textPrimary)
+                                Text("Repeat monthly")
+                                    .font(DSFont.captionSmall())
+                                    .foregroundStyle(DSColor.textTertiary)
+                            }
                             Spacer()
                             Toggle("", isOn: $isRecurring)
-                                .tint(DSColor.accent)
                                 .labelsHidden()
+                                .tint(DSColor.accent)
                         }
-                        .padding(DSSpacing.md)
+                        .glassCard(padding: DSSpacing.sm)
                     }
-                    .glassCard(padding: 0)
-                    
-                    // Save Button
-                    PrimaryButton("Add Transaction", style: .solid) {
-                        saveTransaction()
-                    }
-                    .disabled(amount.isEmpty || title.isEmpty)
-                    .opacity(amount.isEmpty || title.isEmpty ? 0.5 : 1.0)
-                    .padding(.top, DSSpacing.sm)
                 }
                 .padding(.horizontal, DSSpacing.md)
+                .padding(.vertical, DSSpacing.lg)
             }
             .background(DSColor.background)
-            .navigationTitle("New Transaction")
+            .navigationTitle("Add Transaction")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    Button("Cancel") {
-                        dismiss()
-                    }
-                    .foregroundStyle(DSColor.textSecondary)
+                    Button("Cancel") { dismiss() }
+                        .foregroundStyle(DSColor.textSecondary)
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Save") { saveTransaction() }
+                        .font(DSFont.headline())
+                        .foregroundStyle(canSave ? DSColor.accent : DSColor.textTertiary)
+                        .disabled(!canSave)
                 }
             }
         }
         .preferredColorScheme(.dark)
     }
     
+    private var canSave: Bool {
+        !title.isEmpty && (Double(amount) ?? 0) > 0
+    }
+    
     private func saveTransaction() {
-        guard let amountValue = Double(amount.replacingOccurrences(of: ",", with: ".")) else { return }
-        let transaction = TransactionItem(
+        guard let amountValue = Double(amount) else { return }
+        DSHaptics.success()
+        
+        let tx = TransactionItem(
+            userId: userId,
             title: title,
             amount: amountValue,
             date: date,
             category: selectedCategory,
             isExpense: isExpense,
-            isRecurring: isRecurring,
-            iconName: "creditcard"
+            isRecurring: isRecurring
         )
-        modelContext.insert(transaction)
-        DSHaptics.success()
-        dismiss()
+        
+        Task {
+            try? await store.saveTransaction(tx, userId: userId)
+            dismiss()
+        }
     }
-}
-
-#Preview {
-    TransactionEntryView()
 }

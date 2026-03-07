@@ -1,197 +1,184 @@
 import SwiftUI
-import SwiftData
 
 struct NoteEditorView: View {
-    @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
+    @State private var authService = AuthService.shared
+    @State private var store = FirestoreService.shared
     
-    @Bindable var note: NoteItem
-    @State private var newTag: String = ""
-    @FocusState private var titleFocused: Bool
+    @State private var title: String
+    @State private var content: String
+    @State private var tagsText: String
+    @State private var isPinned: Bool
+    @State private var hasChanges = false
     
-    private var isNew: Bool {
-        note.modelContext == nil
+    private let existingNote: NoteItem?
+    private var userId: String { authService.currentUser?.uid ?? "" }
+    private var isNew: Bool { existingNote == nil }
+    
+    init(note: NoteItem?) {
+        self.existingNote = note
+        _title = State(initialValue: note?.title ?? "")
+        _content = State(initialValue: note?.content ?? "")
+        _tagsText = State(initialValue: note?.tagsRaw ?? "")
+        _isPinned = State(initialValue: note?.isPinned ?? false)
+    }
+    
+    private var tags: [String] {
+        tagsText.split(separator: ",")
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty }
     }
     
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: DSSpacing.lg) {
-                // Title
-                TextField("Title", text: $note.title)
-                    .font(.system(size: 28, weight: .bold))
-                    .foregroundStyle(DSColor.textPrimary)
-                    .tint(DSColor.accent)
-                    .focused($titleFocused)
-                
-                Divider().overlay(DSColor.cardBorder)
-                
-                // Tags
-                VStack(alignment: .leading, spacing: DSSpacing.xs) {
-                    Text("Tags")
-                        .font(DSFont.captionSmall())
-                        .foregroundStyle(DSColor.textTertiary)
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: DSSpacing.lg) {
+                    // Title
+                    TextField("Note title...", text: $title)
+                        .font(.system(size: 24, weight: .bold, design: .rounded))
+                        .foregroundStyle(.white)
+                        .onChange(of: title) { _, _ in hasChanges = true }
                     
-                    FlowLayout(spacing: DSSpacing.xs) {
-                        ForEach(note.tags, id: \.self) { tag in
-                            HStack(spacing: DSSpacing.xxs) {
-                                Text(tag)
-                                    .font(DSFont.captionSmall())
-                                
-                                Button {
-                                    var current = note.tags
-                                    current.removeAll { $0 == tag }
-                                    note.tags = current
-                                } label: {
-                                    Image(systemName: "xmark")
-                                        .font(.system(size: 8, weight: .bold))
+                    // Tags
+                    VStack(alignment: .leading, spacing: DSSpacing.xs) {
+                        // Existing tags
+                        if !tags.isEmpty {
+                            ScrollView(.horizontal, showsIndicators: false) {
+                                HStack(spacing: DSSpacing.xs) {
+                                    ForEach(tags, id: \.self) { tag in
+                                        HStack(spacing: DSSpacing.xxs) {
+                                            Text("#\(tag)")
+                                                .font(DSFont.caption())
+                                                .foregroundStyle(DSColor.accent)
+                                            
+                                            Button {
+                                                removeTag(tag)
+                                            } label: {
+                                                Image(systemName: "xmark")
+                                                    .font(.system(size: 8, weight: .bold))
+                                                    .foregroundStyle(DSColor.textTertiary)
+                                            }
+                                        }
+                                        .padding(.horizontal, DSSpacing.sm)
+                                        .padding(.vertical, DSSpacing.xxs + 1)
+                                        .background(
+                                            Capsule()
+                                                .fill(DSColor.accent.opacity(0.1))
+                                                .overlay(Capsule().stroke(DSColor.accent.opacity(0.2), lineWidth: 1))
+                                        )
+                                    }
                                 }
                             }
-                            .foregroundStyle(DSColor.accent)
-                            .padding(.horizontal, DSSpacing.sm)
-                            .padding(.vertical, DSSpacing.xxs)
-                            .background(
-                                Capsule().fill(DSColor.accent.opacity(0.15))
-                            )
                         }
                         
-                        // Add tag input
-                        HStack(spacing: DSSpacing.xxs) {
-                            Image(systemName: "plus")
-                                .font(.system(size: 10))
+                        // Tag input
+                        HStack(spacing: DSSpacing.xs) {
+                            Image(systemName: "tag")
+                                .font(.system(size: 13))
                                 .foregroundStyle(DSColor.textTertiary)
-                            
-                            TextField("Add tag", text: $newTag)
-                                .font(DSFont.captionSmall())
-                                .foregroundStyle(DSColor.textPrimary)
-                                .frame(width: 60)
-                                .onSubmit {
-                                    addTag()
-                                }
+                            TextField("Add tags (comma separated)", text: $tagsText)
+                                .font(DSFont.caption())
+                                .foregroundStyle(DSColor.textSecondary)
+                                .onChange(of: tagsText) { _, _ in hasChanges = true }
                         }
-                        .padding(.horizontal, DSSpacing.sm)
-                        .padding(.vertical, DSSpacing.xxs)
+                        .padding(DSSpacing.sm)
                         .background(
-                            Capsule()
-                                .stroke(DSColor.cardBorder, lineWidth: 0.5)
+                            RoundedRectangle(cornerRadius: DSRadius.sm)
+                                .fill(DSColor.surfaceElevated)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: DSRadius.sm)
+                                        .stroke(DSColor.cardBorder, lineWidth: 1)
+                                )
                         )
                     }
-                }
-                
-                Divider().overlay(DSColor.cardBorder)
-                
-                // Pin toggle
-                HStack {
-                    Image(systemName: note.isPinned ? "pin.fill" : "pin")
-                        .foregroundStyle(note.isPinned ? DSColor.warning : DSColor.textTertiary)
                     
-                    Text("Pin note")
-                        .font(DSFont.body())
-                        .foregroundStyle(DSColor.textPrimary)
+                    // Divider
+                    Rectangle()
+                        .fill(DSColor.cardBorder)
+                        .frame(height: 1)
                     
-                    Spacer()
-                    
-                    Toggle("", isOn: $note.isPinned)
-                        .tint(DSColor.warning)
-                        .labelsHidden()
-                }
-                
-                Divider().overlay(DSColor.cardBorder)
-                
-                // Content editor
-                VStack(alignment: .leading, spacing: DSSpacing.xs) {
-                    Text("Content")
-                        .font(DSFont.captionSmall())
-                        .foregroundStyle(DSColor.textTertiary)
-                    
-                    TextEditor(text: $note.content)
-                        .font(DSFont.body())
-                        .foregroundStyle(DSColor.textPrimary)
-                        .tint(DSColor.accent)
-                        .frame(minHeight: 200)
-                        .scrollContentBackground(.hidden)
-                }
-            }
-            .padding(DSSpacing.md)
-        }
-        .background(DSColor.background)
-        .navigationTitle(isNew ? "New Note" : "Edit Note")
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItem(placement: .cancellationAction) {
-                Button("Cancel") {
-                    dismiss()
-                }
-                .foregroundStyle(DSColor.textSecondary)
-            }
-            
-            ToolbarItem(placement: .confirmationAction) {
-                Button("Save") {
-                    DSHaptics.success()
-                    note.updatedAt = .now
-                    if isNew {
-                        modelContext.insert(note)
+                    // Content editor
+                    ZStack(alignment: .topLeading) {
+                        if content.isEmpty {
+                            Text("Start writing...")
+                                .font(DSFont.body())
+                                .foregroundStyle(DSColor.textTertiary)
+                                .padding(.top, 8)
+                                .padding(.leading, 4)
+                        }
+                        
+                        TextEditor(text: $content)
+                            .font(DSFont.body())
+                            .foregroundStyle(DSColor.textPrimary)
+                            .scrollContentBackground(.hidden)
+                            .frame(minHeight: 300)
+                            .onChange(of: content) { _, _ in hasChanges = true }
                     }
-                    dismiss()
+                    
+                    // Delete for existing
+                    if !isNew {
+                        DSButton("Delete Note", icon: "trash", style: .destructive, isFullWidth: true) {
+                            DSHaptics.error()
+                            Task {
+                                try? await store.deleteNote(existingNote!.id, userId: userId)
+                                dismiss()
+                            }
+                        }
+                        .padding(.top, DSSpacing.lg)
+                    }
                 }
-                .foregroundStyle(note.title.isEmpty ? DSColor.textTertiary : DSColor.accent)
-                .fontWeight(.semibold)
-                .disabled(note.title.isEmpty)
+                .padding(.horizontal, DSSpacing.md)
+                .padding(.vertical, DSSpacing.lg)
+            }
+            .background(DSColor.background)
+            .navigationTitle(isNew ? "New Note" : "Edit Note")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button("Cancel") { dismiss() }
+                        .foregroundStyle(DSColor.textSecondary)
+                }
+                
+                ToolbarItemGroup(placement: .topBarTrailing) {
+                    Button {
+                        DSHaptics.selection()
+                        isPinned.toggle()
+                        hasChanges = true
+                    } label: {
+                        Image(systemName: isPinned ? "pin.fill" : "pin")
+                            .font(.system(size: 15))
+                            .foregroundStyle(isPinned ? DSColor.amber : DSColor.textTertiary)
+                    }
+                    
+                    Button("Save") { saveNote() }
+                        .font(DSFont.headline())
+                        .foregroundStyle(hasChanges ? DSColor.accent : DSColor.textTertiary)
+                        .disabled(!hasChanges)
+                }
             }
         }
-        .onAppear {
-            if isNew {
-                titleFocused = true
-            }
-        }
+        .preferredColorScheme(.dark)
     }
     
-    private func addTag() {
-        let tag = newTag.trimmingCharacters(in: .whitespaces)
-        guard !tag.isEmpty, !note.tags.contains(tag) else { return }
-        var current = note.tags
-        current.append(tag)
-        note.tags = current
-        newTag = ""
-    }
-}
-
-// MARK: - Flow Layout
-
-struct FlowLayout: Layout {
-    var spacing: CGFloat = 8
-    
-    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
-        let result = computeLayout(proposal: proposal, subviews: subviews)
-        return result.size
+    private func removeTag(_ tag: String) {
+        var currentTags = tags
+        currentTags.removeAll { $0 == tag }
+        tagsText = currentTags.joined(separator: ", ")
+        hasChanges = true
     }
     
-    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
-        let result = computeLayout(proposal: proposal, subviews: subviews)
-        for (index, position) in result.positions.enumerated() {
-            subviews[index].place(at: CGPoint(x: bounds.minX + position.x, y: bounds.minY + position.y), proposal: .unspecified)
-        }
-    }
-    
-    private func computeLayout(proposal: ProposedViewSize, subviews: Subviews) -> (size: CGSize, positions: [CGPoint]) {
-        let maxWidth = proposal.width ?? .infinity
-        var positions: [CGPoint] = []
-        var currentX: CGFloat = 0
-        var currentY: CGFloat = 0
-        var lineHeight: CGFloat = 0
+    private func saveNote() {
+        DSHaptics.success()
+        var note = existingNote ?? NoteItem(title: title, content: content)
+        note.title = title
+        note.content = content
+        note.tagsRaw = tagsText
+        note.isPinned = isPinned
+        note.updatedAt = .now
         
-        for subview in subviews {
-            let size = subview.sizeThatFits(.unspecified)
-            if currentX + size.width > maxWidth && currentX > 0 {
-                currentX = 0
-                currentY += lineHeight + spacing
-                lineHeight = 0
-            }
-            positions.append(CGPoint(x: currentX, y: currentY))
-            lineHeight = max(lineHeight, size.height)
-            currentX += size.width + spacing
+        Task {
+            try? await store.saveNote(note, userId: userId)
+            dismiss()
         }
-        
-        let finalSize = CGSize(width: maxWidth, height: currentY + lineHeight)
-        return (finalSize, positions)
     }
 }

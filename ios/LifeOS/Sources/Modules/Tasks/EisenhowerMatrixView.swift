@@ -1,8 +1,11 @@
 import SwiftUI
-import SwiftData
 
 struct EisenhowerMatrixView: View {
-    @Query private var tasks: [TaskItem]
+    @State private var store = FirestoreService.shared
+    
+    private var activeTasks: [TaskItem] {
+        store.tasks.filter { !$0.isCompleted }
+    }
     
     var body: some View {
         VStack(spacing: DSSpacing.xs) {
@@ -139,10 +142,10 @@ struct EisenhowerMatrixView: View {
         )
     }
     
-    private var urgentImportant: [TaskItem] { tasks.filter { $0.priority == 2 && isUrgent($0) && !$0.isCompleted } }
-    private var notUrgentImportant: [TaskItem] { tasks.filter { $0.priority == 2 && !isUrgent($0) && !$0.isCompleted } }
-    private var urgentNotImportant: [TaskItem] { tasks.filter { $0.priority < 2 && isUrgent($0) && !$0.isCompleted } }
-    private var notUrgentNotImportant: [TaskItem] { tasks.filter { $0.priority < 2 && !isUrgent($0) && !$0.isCompleted } }
+    private var urgentImportant: [TaskItem] { activeTasks.filter { $0.priority == 2 && isUrgent($0) } }
+    private var notUrgentImportant: [TaskItem] { activeTasks.filter { $0.priority == 2 && !isUrgent($0) } }
+    private var urgentNotImportant: [TaskItem] { activeTasks.filter { $0.priority < 2 && isUrgent($0) } }
+    private var notUrgentNotImportant: [TaskItem] { activeTasks.filter { $0.priority < 2 && !isUrgent($0) } }
     
     private func isUrgent(_ task: TaskItem) -> Bool {
         guard let due = task.dueDate else { return false }

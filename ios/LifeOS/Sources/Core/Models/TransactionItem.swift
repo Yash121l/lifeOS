@@ -1,8 +1,8 @@
 import Foundation
-import SwiftData
 
-@Model
-final class TransactionItem {
+struct TransactionItem: Codable, Identifiable, Hashable {
+    var id: String
+    var userId: String
     var title: String
     var amount: Double
     var date: Date
@@ -10,16 +10,24 @@ final class TransactionItem {
     var isExpense: Bool
     var isRecurring: Bool
     var iconName: String
+    var createdAt: Date
+    var updatedAt: Date
     
     init(
+        id: String = UUID().uuidString,
+        userId: String = "",
         title: String,
         amount: Double,
         date: Date = Date(),
         category: String = "Other",
         isExpense: Bool = true,
         isRecurring: Bool = false,
-        iconName: String = "creditcard"
+        iconName: String = "creditcard",
+        createdAt: Date = .now,
+        updatedAt: Date = .now
     ) {
+        self.id = id
+        self.userId = userId
         self.title = title
         self.amount = amount
         self.date = date
@@ -27,20 +35,22 @@ final class TransactionItem {
         self.isExpense = isExpense
         self.isRecurring = isRecurring
         self.iconName = iconName
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
     }
     
-    var categoryEmoji: String {
+    var categoryIcon: String {
         switch category.lowercased() {
-        case "food", "dining": return "🍕"
-        case "transport", "travel": return "🚗"
-        case "shopping": return "🛍️"
-        case "entertainment": return "🎮"
-        case "bills", "utilities": return "💡"
-        case "health": return "💊"
-        case "education": return "📚"
-        case "subscription": return "🔄"
-        case "income", "salary": return "💰"
-        default: return "💳"
+        case "food", "dining": return "fork.knife"
+        case "transport", "travel": return "car"
+        case "shopping": return "bag"
+        case "entertainment": return "play.circle"
+        case "bills", "utilities": return "bolt"
+        case "health": return "heart"
+        case "education": return "book"
+        case "subscription": return "arrow.2.squarepath"
+        case "income", "salary": return "banknote"
+        default: return "creditcard"
         }
     }
 }

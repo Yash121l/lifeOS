@@ -2,52 +2,51 @@ import Foundation
 import EventKit
 import SwiftUI
 
+/// Calendar manager that delegates to Google Calendar API for cross-platform sync
 @Observable
 final class CalendarManager {
     static let shared = CalendarManager()
     
-    private let eventStore = EKEventStore()
-    var authorizationStatus: EKAuthorizationStatus = EKEventStore.authorizationStatus(for: .event)
+    private let googleService = GoogleCalendarService.shared
     
-    func requestAccess() async -> Bool {
-        do {
-            if #available(iOS 17.0, *) {
-                let granted = try await eventStore.requestWriteOnlyAccessToEvents()
-                authorizationStatus = EKEventStore.authorizationStatus(for: .event)
-                return granted
-            } else {
-                let granted = try await eventStore.requestAccess(to: .event)
-                authorizationStatus = EKEventStore.authorizationStatus(for: .event)
-                return granted
-            }
-        } catch {
-            print("Failed to request calendar access: \(error)")
-            return false
-        }
+    var isSyncing: Bool { googleService.isSyncing }
+    var isConnected: Bool { googleService.isConnected }
+    var lastSyncDate: Date? { googleService.lastSyncDate }
+    var syncedEventCount: Int { googleService.syncedEventCount }
+    
+    private init() {}
+    
+    // MARK: - Sync
+    
+    func performSync() async {
+        await googleService.performSync()
     }
     
-    func addEventToCalendar(title: String, startDate: Date, durationMinutes: Int, notes: String?) async -> Bool {
-        // Ensure calendar sync is enabled in settings
-        guard SettingsManager.shared.isCalendarSyncEnabled else { return false }
-        
-        if authorizationStatus != .fullAccess && authorizationStatus != .writeOnly {
-            let granted = await requestAccess()
-            if !granted { return false }
-        }
-        
-        let event = EKEvent(eventStore: eventStore)
-        event.title = title
-        event.startDate = startDate
-        event.endDate = startDate.addingTimeInterval(TimeInterval(durationMinutes * 60))
-        event.notes = notes
-        event.calendar = eventStore.defaultCalendarForNewEvents
-        
-        do {
-            try eventStore.save(event, span: .thisEvent)
-            return true
-        } catch {
-            print("Failed to save event to calendar: \(error)")
-            return false
-        }
+    func fetchEventsForToday() async -> [GoogleCalendarService.GoogleCalendarEvent] {
+        await googleService.fetchEvents(for: Date())
+        return googleService.events
+    }
+    
+    // MARK: - Create Event from TimeBlock
+    
+    func addTimeBlockToCalendar(_ block: TimeBlock) async -> Bool {
+        return await googleService.createEvent(
+            title: block.title,
+            startDate: block.startTime,
+            endDate: block.endTime,
+            description: "Created by LifeOS"
+        )
+    }
+    
+    // MARK: - Create Event from Task
+    
+    func addTaskToCalendar(title: String, startDate: Date, durationMinutes: Int, notes: String?) async -> Bool {
+        let endDate = startDate.addingTimeInterval(TimeInterval(durationMinutes * 60))
+        return await googleService.createEvent(
+            title: title,
+            startDate: startDate,
+            endDate: endDate,
+            description: notes
+        )
     }
 }

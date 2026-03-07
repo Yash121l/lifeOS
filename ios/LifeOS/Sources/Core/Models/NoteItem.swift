@@ -1,8 +1,8 @@
 import Foundation
-import SwiftData
 
-@Model
-final class NoteItem {
+struct NoteItem: Codable, Identifiable, Hashable {
+    var id: String
+    var userId: String
     var title: String
     var content: String
     var createdAt: Date
@@ -11,6 +11,8 @@ final class NoteItem {
     var isPinned: Bool
     
     init(
+        id: String = UUID().uuidString,
+        userId: String = "",
         title: String,
         content: String,
         createdAt: Date = .now,
@@ -18,6 +20,8 @@ final class NoteItem {
         tagsRaw: String = "",
         isPinned: Bool = false
     ) {
+        self.id = id
+        self.userId = userId
         self.title = title
         self.content = content
         self.createdAt = createdAt
@@ -27,14 +31,9 @@ final class NoteItem {
     }
     
     var tags: [String] {
-        get {
-            tagsRaw.split(separator: ",")
-                .map { $0.trimmingCharacters(in: .whitespaces) }
-                .filter { !$0.isEmpty }
-        }
-        set {
-            tagsRaw = newValue.joined(separator: ",")
-        }
+        tagsRaw.split(separator: ",")
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty }
     }
     
     var preview: String {

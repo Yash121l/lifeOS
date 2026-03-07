@@ -3,49 +3,89 @@ import SwiftUI
 // MARK: - Color Palette
 
 enum DSColor {
-    // Core
-    static let background = Color(hex: "0A0A0A")
-    static let surface = Color(hex: "141414")
-    static let surfaceLight = Color(hex: "1C1C1E")
+    // Core surfaces
+    static let background = Color(hex: "050507")
+    static let surface = Color(hex: "111113")
+    static let surfaceElevated = Color(hex: "1A1A1F")
+    static let surfaceLight = Color(hex: "222228")
     static let cardBorder = Color.white.opacity(0.06)
     
-    // Accent
-    static let accent = Color(hex: "007AFF")
-    static let accentGlow = Color(hex: "007AFF").opacity(0.25)
+    // Accent palette
+    static let accent = Color(hex: "6C5CE7")
+    static let accentLight = Color(hex: "A29BFE")
+    static let accentGlow = Color(hex: "6C5CE7").opacity(0.25)
+    
+    // Secondary accents
+    static let cyan = Color(hex: "00CEC9")
+    static let coral = Color(hex: "FF6B6B")
+    static let amber = Color(hex: "FDCB6E")
+    static let mint = Color(hex: "00B894")
     
     // Semantic
-    static let success = Color(hex: "34C759")
-    static let warning = Color(hex: "FF9F0A")
-    static let error = Color(hex: "FF3B30")
+    static let success = Color(hex: "00B894")
+    static let warning = Color(hex: "FDCB6E")
+    static let error = Color(hex: "FF6B6B")
+    static let info = Color(hex: "74B9FF")
     
     // Text
     static let textPrimary = Color.white
-    static let textSecondary = Color.white.opacity(0.55)
+    static let textSecondary = Color.white.opacity(0.6)
     static let textTertiary = Color.white.opacity(0.3)
     
     // Energy levels
-    static let energyHigh = Color(hex: "FF3B30")
-    static let energyMedium = Color(hex: "FF9F0A")
-    static let energyLow = Color(hex: "34C759")
+    static let energyHigh = Color(hex: "FF6B6B")
+    static let energyMedium = Color(hex: "FDCB6E")
+    static let energyLow = Color(hex: "00B894")
     
     // Block types
-    static let deepWork = Color(hex: "5E5CE6")
-    static let meeting = Color(hex: "FF9F0A")
-    static let personal = Color(hex: "30D158")
-    static let routine = Color(hex: "636366")
+    static let deepWork = Color(hex: "6C5CE7")
+    static let meeting = Color(hex: "FDCB6E")
+    static let personal = Color(hex: "00B894")
+    static let routine = Color(hex: "636E72")
+}
+
+// MARK: - Gradients
+
+enum DSGradient {
+    static let accent = LinearGradient(
+        colors: [Color(hex: "6C5CE7"), Color(hex: "A29BFE")],
+        startPoint: .topLeading, endPoint: .bottomTrailing
+    )
+    static let success = LinearGradient(
+        colors: [Color(hex: "00B894"), Color(hex: "55EFC4")],
+        startPoint: .topLeading, endPoint: .bottomTrailing
+    )
+    static let error = LinearGradient(
+        colors: [Color(hex: "FF6B6B"), Color(hex: "FF8E8E")],
+        startPoint: .topLeading, endPoint: .bottomTrailing
+    )
+    static let warm = LinearGradient(
+        colors: [Color(hex: "FDCB6E"), Color(hex: "E17055")],
+        startPoint: .topLeading, endPoint: .bottomTrailing
+    )
+    static let cool = LinearGradient(
+        colors: [Color(hex: "74B9FF"), Color(hex: "0984E3")],
+        startPoint: .topLeading, endPoint: .bottomTrailing
+    )
+    static let surface = LinearGradient(
+        colors: [Color(hex: "111113"), Color(hex: "1A1A1F")],
+        startPoint: .top, endPoint: .bottom
+    )
 }
 
 // MARK: - Typography
 
 enum DSFont {
-    static func largeTitle() -> Font { .system(.largeTitle, design: .default, weight: .bold) }
-    static func title() -> Font { .system(.title2, design: .default, weight: .bold) }
-    static func headline() -> Font { .system(.headline, design: .default, weight: .semibold) }
+    static func largeTitle() -> Font { .system(.largeTitle, design: .rounded, weight: .bold) }
+    static func title() -> Font { .system(.title2, design: .rounded, weight: .bold) }
+    static func title3() -> Font { .system(.title3, design: .rounded, weight: .semibold) }
+    static func headline() -> Font { .system(.headline, design: .rounded, weight: .semibold) }
     static func body() -> Font { .system(.body, design: .default, weight: .regular) }
     static func subheadline() -> Font { .system(.subheadline, design: .default, weight: .regular) }
     static func caption() -> Font { .system(.caption, design: .default, weight: .medium) }
     static func captionSmall() -> Font { .system(.caption2, design: .default, weight: .regular) }
     static func mono() -> Font { .system(.body, design: .monospaced, weight: .regular) }
+    static func monoLarge() -> Font { .system(.title, design: .monospaced, weight: .bold) }
 }
 
 // MARK: - Spacing
@@ -60,6 +100,7 @@ enum DSSpacing {
     static let xl: CGFloat = 24
     static let xxl: CGFloat = 32
     static let xxxl: CGFloat = 40
+    static let huge: CGFloat = 56
 }
 
 // MARK: - Corner Radius
@@ -69,21 +110,8 @@ enum DSRadius {
     static let md: CGFloat = 12
     static let lg: CGFloat = 16
     static let xl: CGFloat = 20
+    static let xxl: CGFloat = 24
     static let pill: CGFloat = 100
-}
-
-// MARK: - Shadows
-
-enum DSShadow {
-    static func soft(_ color: Color = .black) -> some View {
-        Color.clear
-            .shadow(color: color.opacity(0.2), radius: 12, x: 0, y: 4)
-    }
-    
-    static func glow(_ color: Color = DSColor.accent) -> some View {
-        Color.clear
-            .shadow(color: color.opacity(0.3), radius: 20, x: 0, y: 0)
-    }
 }
 
 // MARK: - View Modifiers
@@ -97,11 +125,28 @@ struct GlassCardModifier: ViewModifier {
             .padding(padding)
             .background(
                 RoundedRectangle(cornerRadius: DSRadius.lg)
-                    .fill(.ultraThinMaterial)
+                    .fill(DSColor.surface)
                     .overlay(
                         RoundedRectangle(cornerRadius: DSRadius.lg)
-                            .fill(tint.opacity(0.05))
+                            .fill(tint.opacity(0.04))
                     )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: DSRadius.lg)
+                            .stroke(DSColor.cardBorder, lineWidth: 1)
+                    )
+            )
+    }
+}
+
+struct ElevatedCardModifier: ViewModifier {
+    var padding: CGFloat
+    
+    func body(content: Content) -> some View {
+        content
+            .padding(padding)
+            .background(
+                RoundedRectangle(cornerRadius: DSRadius.lg)
+                    .fill(DSColor.surfaceElevated)
                     .overlay(
                         RoundedRectangle(cornerRadius: DSRadius.lg)
                             .stroke(DSColor.cardBorder, lineWidth: 1)
@@ -115,8 +160,12 @@ extension View {
         modifier(GlassCardModifier(tint: tint, padding: padding))
     }
     
+    func elevatedCard(padding: CGFloat = DSSpacing.md) -> some View {
+        modifier(ElevatedCardModifier(padding: padding))
+    }
+    
     func softShadow() -> some View {
-        self.shadow(color: .black.opacity(0.2), radius: 12, x: 0, y: 4)
+        self.shadow(color: .black.opacity(0.3), radius: 12, x: 0, y: 4)
     }
     
     func glowShadow(_ color: Color = DSColor.accent) -> some View {
@@ -159,8 +208,16 @@ enum DSHaptics {
         UIImpactFeedbackGenerator(style: .medium).impactOccurred()
     }
     
+    static func heavy() {
+        UIImpactFeedbackGenerator(style: .heavy).impactOccurred()
+    }
+    
     static func success() {
         UINotificationFeedbackGenerator().notificationOccurred(.success)
+    }
+    
+    static func error() {
+        UINotificationFeedbackGenerator().notificationOccurred(.error)
     }
     
     static func selection() {
@@ -174,6 +231,53 @@ enum DSAnimation {
     static let springQuick = Animation.spring(response: 0.25, dampingFraction: 0.8)
     static let springMedium = Animation.spring(response: 0.35, dampingFraction: 0.75)
     static let springBounce = Animation.spring(response: 0.4, dampingFraction: 0.65)
+    static let springGentle = Animation.spring(response: 0.5, dampingFraction: 0.7)
     static let easeQuick = Animation.easeInOut(duration: 0.2)
     static let easeMedium = Animation.easeInOut(duration: 0.3)
+    static let easeSlow = Animation.easeInOut(duration: 0.5)
+}
+
+// MARK: - SF Symbols
+
+enum DSIcon {
+    // Tabs
+    static let dashboard = "square.grid.2x2.fill"
+    static let time = "calendar"
+    static let tasks = "checkmark.circle.fill"
+    static let finance = "chart.pie.fill"
+    static let knowledge = "book.fill"
+    
+    // Actions
+    static let add = "plus"
+    static let delete = "trash"
+    static let edit = "pencil"
+    static let settings = "gearshape.fill"
+    static let search = "magnifyingglass"
+    static let filter = "line.3.horizontal.decrease.circle"
+    static let sort = "arrow.up.arrow.down"
+    static let share = "square.and.arrow.up"
+    
+    // Status
+    static let completed = "checkmark.circle.fill"
+    static let pending = "circle"
+    static let pinned = "pin.fill"
+    static let recurring = "arrow.triangle.2.circlepath"
+    static let energy = "bolt.fill"
+    
+    // Categories
+    static let food = "fork.knife"
+    static let transport = "car.fill"
+    static let shopping = "bag.fill"
+    static let entertainment = "gamecontroller.fill"
+    static let bills = "lightbulb.fill"
+    static let health = "heart.fill"
+    static let education = "graduationcap.fill"
+    static let subscription = "arrow.triangle.2.circlepath"
+    static let salary = "banknote.fill"
+    
+    // Auth
+    static let person = "person.fill"
+    static let email = "envelope.fill"
+    static let lock = "lock.fill"
+    static let signOut = "arrow.right.square"
 }
