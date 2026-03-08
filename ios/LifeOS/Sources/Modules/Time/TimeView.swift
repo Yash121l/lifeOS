@@ -10,6 +10,26 @@ struct TimeView: View {
     @State private var googleEvents: [GoogleCalendarService.GoogleCalendarEvent] = []
     @State private var selectedEventPayload: NotificationPayload?
     
+    // MARK: - Unified Event Model
+    struct UnifiedEvent: Identifiable {
+        let id: String
+        let title: String
+        let startTime: Date
+        let endTime: Date
+        let isAllDay: Bool
+        let color: Color
+        let isGoogleEvent: Bool
+        let rawGoogleEvent: GoogleCalendarService.GoogleCalendarEvent?
+        let rawTimeBlock: TimeBlock?
+        
+        // Layout attributes computed during rendering
+        var column: Int = 0
+        var totalColumns: Int = 1
+    }
+    
+    // MARK: - Layout State
+    @State private var layoutEvents: [UnifiedEvent] = []
+    
     private var userId: String { authService.currentUser?.uid ?? "" }
     
     // Timer to update current time line
@@ -55,11 +75,11 @@ struct TimeView: View {
                                 // Hour grid
                                 hourGrid
                                 
-                                // Google Calendar event blocks
-                                googleEventBlocksOverlay
+                                // All-day Google Events at top
+                                allDayEventsBanner
                                 
-                                // LifeOS time blocks overlay
-                                eventBlocksOverlay
+                                // Unified overlapping blocks
+                                unifiedBlocksOverlay
                                 
                                 // Current time indicator
                                 if Calendar.current.isDateInToday(selectedDate) {
@@ -106,9 +126,16 @@ struct TimeView: View {
             }
             .task {
                 await loadGoogleEvents()
+                calculateLayout()
             }
             .onChange(of: selectedDate) { _, _ in
-                Task { await loadGoogleEvents() }
+                Task {
+                    await loadGoogleEvents()
+                    calculateLayout()
+                }
+            }
+            .onChange(of: store.timeBlocks) { _, _ in
+                calculateLayout()
             }
         }
     }
@@ -201,67 +228,108 @@ struct TimeView: View {
         }
     }
     
-    // MARK: - Google Calendar Event Blocks
+    // MARK: - Unified Layout Algorithm
     
-    private var googleEventBlocksOverlay: some View {
+    private func calculateLayout() {
+        var merged: [UnifiedEvent] = []
+        
+        // 1. Convert TimeBlocks
+        for block in store.timeBlocks where Calendar.current.isDate(block.startTime, inSameDayAs: selectedDate) {
+            merged.append(UnifiedEvent(
+                id: block.id,
+                title: block.title,
+                startTime: block.startTime,
+                endTime: block.endTime,
+                isAllDay: false,
+                color: Color(hex: block.colorHex),
+                isGoogleEvent: false,
+                rawGoogleEvent: nil,
+                rawTimeBlock: block
+            ))
+        }
+        
+        // 2. Convert Google Events (exclude all day for main grid)
+        for event in googleEvents {
+            guard let start = event.startDate, Calendar.current.isDate(start, inSameDayAs: selectedDate), !event.isAllDay, let end = event.endDate else { continue }
+            merged.append(UnifiedEvent(
+                id: event.id,
+                title: event.title,
+                startTime: start,
+                endTime: end,
+                isAllDay: false,
+                color: Color(red: 0.26, green: 0.52, blue: 0.96),
+                isGoogleEvent: true,
+                rawGoogleEvent: event,
+                rawTimeBlock: nil
+            ))
+        }
+        
+        // 3. Sort by start time, then by end time descending (longest first)
+        merged.sort { a, b in
+            if a.startTime != b.startTime { return a.startTime < b.startTime }
+            return a.endTime > b.endTime
+        }
+        
+        // 4. Overlap Grouping Algorithm
+        var result: [UnifiedEvent] = []
+        var currentGroup: [UnifiedEvent] = []
+        var groupEnd: Date = .distantPast
+        
+        for event in merged {
+            // If this event starts after the entire group ends, flush the group and start a new one
+            if event.startTime >= groupEnd && !currentGroup.isEmpty {
+                result.append(contentsOf: layoutGroup(currentGroup))
+                currentGroup = []
+                groupEnd = event.endTime
+            } else {
+                groupEnd = max(groupEnd, event.endTime)
+            }
+            currentGroup.append(event)
+        }
+        
+        // Flush remaining
+        if !currentGroup.isEmpty {
+            result.append(contentsOf: layoutGroup(currentGroup))
+        }
+        
+        self.layoutEvents = result
+    }
+    
+    /// Assigns columns to events that overlap
+    private func layoutGroup(_ group: [UnifiedEvent]) -> [UnifiedEvent] {
+        var columns: [[Date]] = [] // stores end times for each column
+        var assignedEvents: [UnifiedEvent] = []
+        
+        for var event in group {
+            var placed = false
+            for colIdx in 0..<columns.count {
+                if let lastEnd = columns[colIdx].last, event.startTime >= lastEnd {
+                    columns[colIdx].append(event.endTime)
+                    event.column = colIdx
+                    placed = true
+                    break
+                }
+            }
+            
+            if !placed {
+                columns.append([event.endTime])
+                event.column = columns.count - 1
+            }
+            assignedEvents.append(event)
+        }
+        
+        let totalColumns = columns.count
+        return assignedEvents.map { var e = $0; e.totalColumns = totalColumns; return e }
+    }
+    
+    // MARK: - All Day Banner
+    private var allDayEventsBanner: some View {
         GeometryReader { geo in
             let timelineLeading: CGFloat = 56
             let blockWidth = geo.size.width - timelineLeading - DSSpacing.sm
             
-            ForEach(calendarEventsForSelectedDate) { event in
-                if let startDate = event.startDate, let endDate = event.endDate, !event.isAllDay {
-                    let yOffset = yPosition(for: startDate)
-                    let height = max(hourHeight * 0.4, yPosition(for: endDate) - yOffset)
-                    let eventColor = Color(red: 0.26, green: 0.52, blue: 0.96) // Google blue
-                    
-                    HStack(spacing: 0) {
-                        // Color bar
-                        RoundedRectangle(cornerRadius: 3)
-                            .fill(eventColor)
-                            .frame(width: 4)
-                        
-                        // Content
-                        VStack(alignment: .leading, spacing: DSSpacing.xxxs) {
-                            HStack(spacing: 4) {
-                                Image(systemName: "g.circle.fill")
-                                    .font(.system(size: 9))
-                                    .foregroundStyle(eventColor)
-                                Text(event.title)
-                                    .font(DSFont.caption())
-                                    .fontWeight(.semibold)
-                                    .foregroundStyle(.white)
-                                    .lineLimit(1)
-                            }
-                            
-                            if height > 36 {
-                                Text("\(startDate, format: .dateTime.hour().minute()) – \(endDate, format: .dateTime.hour().minute())")
-                                    .font(.system(size: 9))
-                                    .foregroundStyle(.white.opacity(0.7))
-                            }
-                        }
-                        .padding(.leading, DSSpacing.xs)
-                        .padding(.vertical, DSSpacing.xxs)
-                        
-                        Spacer()
-                    }
-                    .frame(width: blockWidth, height: height)
-                    .background(
-                        RoundedRectangle(cornerRadius: DSRadius.sm)
-                            .fill(eventColor.opacity(0.15))
-                            .overlay(
-                                RoundedRectangle(cornerRadius: DSRadius.sm)
-                                    .stroke(eventColor.opacity(0.3), lineWidth: 1)
-                            )
-                    )
-                    .offset(x: timelineLeading, y: yOffset)
-                    .onTapGesture {
-                        DSHaptics.light()
-                        selectedEventPayload = NotificationPayload.fromEvent(event)
-                    }
-                }
-                
-                // All-day events banner at the top
-                if event.isAllDay {
+            VStack(spacing: 2) {
+                ForEach(calendarEventsForSelectedDate.filter { $0.isAllDay }) { event in
                     HStack(spacing: 6) {
                         Image(systemName: "g.circle.fill")
                             .font(.system(size: 9))
@@ -287,39 +355,54 @@ struct TimeView: View {
                             )
                     )
                     .offset(x: timelineLeading, y: 2)
+                    .onTapGesture {
+                        DSHaptics.light()
+                        selectedEventPayload = NotificationPayload.fromEvent(event)
+                    }
                 }
             }
         }
     }
     
-    // MARK: - LifeOS Event Blocks Overlay
+    // MARK: - Unified View Layout Layer
     
-    private var eventBlocksOverlay: some View {
+    private var unifiedBlocksOverlay: some View {
         GeometryReader { geo in
-            let timelineLeading: CGFloat = 56  // time label + spacing
-            let blockWidth = geo.size.width - timelineLeading - DSSpacing.sm
+            let timelineLeading: CGFloat = 56
+            let fullWidth = geo.size.width - timelineLeading - DSSpacing.sm
             
-            ForEach(blocksForSelectedDate) { block in
-                let yOffset = yPosition(for: block.startTime)
-                let height = max(hourHeight * 0.4, yPosition(for: block.endTime) - yOffset)
-                let color = Color(hex: block.colorHex)
+            ForEach(layoutEvents) { event in
+                let yOffset = yPosition(for: event.startTime)
+                // Minimal visual height for very short events
+                let height = max(hourHeight * 0.4, yPosition(for: event.endTime) - yOffset)
+                
+                // Calculate column dimensions
+                let columnWidth = fullWidth / CGFloat(event.totalColumns)
+                let xOffset = timelineLeading + (CGFloat(event.column) * columnWidth)
                 
                 HStack(spacing: 0) {
-                    // Color bar
+                    // Left color bar
                     RoundedRectangle(cornerRadius: 3)
-                        .fill(color)
+                        .fill(event.color)
                         .frame(width: 4)
                     
-                    // Content
                     VStack(alignment: .leading, spacing: DSSpacing.xxxs) {
-                        Text(block.title)
-                            .font(DSFont.caption())
-                            .fontWeight(.semibold)
-                            .foregroundStyle(.white)
-                            .lineLimit(1)
+                        HStack(spacing: 4) {
+                            if event.isGoogleEvent {
+                                Image(systemName: "g.circle.fill")
+                                    .font(.system(size: 9))
+                                    .foregroundStyle(event.color)
+                            }
+                            Text(event.title)
+                                .font(DSFont.caption())
+                                .fontWeight(.semibold)
+                                .foregroundStyle(.white)
+                                .lineLimit(1)
+                        }
                         
+                        // Only show times if height is enough
                         if height > 36 {
-                            Text("\(block.startTime, format: .dateTime.hour().minute()) – \(block.endTime, format: .dateTime.hour().minute())")
+                            Text("\(event.startTime, format: .dateTime.hour().minute()) – \(event.endTime, format: .dateTime.hour().minute())")
                                 .font(.system(size: 9))
                                 .foregroundStyle(.white.opacity(0.7))
                         }
@@ -329,35 +412,39 @@ struct TimeView: View {
                     
                     Spacer()
                 }
-                .frame(width: blockWidth, height: height)
+                .frame(width: columnWidth - 2, height: height) // slight separation between cols
                 .background(
                     RoundedRectangle(cornerRadius: DSRadius.sm)
-                        .fill(color.opacity(0.18))
+                        .fill(event.color.opacity(0.15))
                         .overlay(
                             RoundedRectangle(cornerRadius: DSRadius.sm)
-                                .stroke(color.opacity(0.3), lineWidth: 1)
+                                .stroke(event.color.opacity(0.3), lineWidth: 1)
                         )
                 )
-                .offset(x: timelineLeading, y: yOffset)
+                .offset(x: xOffset, y: yOffset)
                 .onTapGesture {
                     DSHaptics.light()
-                    selectedEventPayload = NotificationPayload(
-                        isTask: false,
-                        title: block.title,
-                        subtitle: nil,
-                        badge: block.blockType.capitalized,
-                        description: nil,
-                        startTime: block.startTime,
-                        endTime: block.endTime,
-                        priority: nil,
-                        energyLevel: nil,
-                        timeEstimate: block.durationMinutes,
-                        location: nil,
-                        meetingLink: nil,
-                        htmlLink: nil,
-                        taskId: block.linkedTaskId,
-                        eventId: block.id
-                    )
+                    if let google = event.rawGoogleEvent {
+                        selectedEventPayload = NotificationPayload.fromEvent(google)
+                    } else if let block = event.rawTimeBlock {
+                        selectedEventPayload = NotificationPayload(
+                            isTask: false,
+                            title: block.title,
+                            subtitle: nil,
+                            badge: block.blockType.capitalized,
+                            description: nil,
+                            startTime: block.startTime,
+                            endTime: block.endTime,
+                            priority: nil,
+                            energyLevel: nil,
+                            timeEstimate: block.durationMinutes,
+                            location: nil,
+                            meetingLink: nil,
+                            htmlLink: nil,
+                            taskId: block.linkedTaskId,
+                            eventId: block.id
+                        )
+                    }
                 }
             }
         }
