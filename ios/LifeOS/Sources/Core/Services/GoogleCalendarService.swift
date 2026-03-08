@@ -50,6 +50,7 @@ final class GoogleCalendarService {
         let colorId: String?
         let location: String?
         let hangoutLink: String?
+        let attendees: [GoogleAttendee]?
         
         var title: String { summary ?? "Untitled" }
         
@@ -84,6 +85,21 @@ final class GoogleCalendarService {
         let dateTime: String?
         let date: String?
         let timeZone: String?
+    }
+    
+    struct GoogleAttendee: Codable, Identifiable {
+        var id: String { email ?? UUID().uuidString }
+        let email: String?
+        let displayName: String?
+        let responseStatus: String?
+        let selfAttendee: Bool?
+        
+        enum CodingKeys: String, CodingKey {
+            case email
+            case displayName
+            case responseStatus
+            case selfAttendee = "self"
+        }
     }
     
     private struct CalendarListResponse: Codable {

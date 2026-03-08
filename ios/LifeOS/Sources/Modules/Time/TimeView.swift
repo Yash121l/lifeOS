@@ -442,7 +442,8 @@ struct TimeView: View {
                             meetingLink: nil,
                             htmlLink: nil,
                             taskId: block.linkedTaskId,
-                            eventId: block.id
+                            eventId: block.id,
+                            attendees: nil
                         )
                     }
                 }

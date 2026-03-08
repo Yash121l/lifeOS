@@ -142,12 +142,81 @@ struct NotificationDetailView: View {
                             .foregroundStyle(DSColor.textTertiary)
                     }
                     
-                    Text(description)
+                    Text(description.strippingHTMLAndFormatting())
                         .font(DSFont.body())
                         .foregroundStyle(DSColor.textSecondary)
                         .frame(maxWidth: .infinity, alignment: .leading)
+                        .textSelection(.enabled)
                 }
                 .glassCard(tint: DSColor.accentLight)
+            }
+            
+            // Attendees
+            if let attendees = payload.attendees, !attendees.isEmpty {
+                VStack(alignment: .leading, spacing: DSSpacing.xs) {
+                    HStack(spacing: DSSpacing.xs) {
+                        Image(systemName: "person.2.fill")
+                            .font(.system(size: 13))
+                            .foregroundStyle(DSColor.textTertiary)
+                        Text("Participants")
+                            .font(DSFont.caption())
+                            .foregroundStyle(DSColor.textTertiary)
+                    }
+                    
+                    VStack(alignment: .leading, spacing: DSSpacing.sm) {
+                        ForEach(attendees) { attendee in
+                            HStack(spacing: DSSpacing.sm) {
+                                // Avatar circle
+                                ZStack {
+                                    Circle()
+                                        .fill(DSColor.surfaceElevated)
+                                        .frame(width: 32, height: 32)
+                                    Text(String((attendee.displayName ?? attendee.email ?? "?").prefix(1)).uppercased())
+                                        .font(.system(size: 12, weight: .bold))
+                                        .foregroundStyle(DSColor.textSecondary)
+                                }
+                                
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(attendee.displayName ?? attendee.email ?? "Unknown")
+                                        .font(DSFont.caption())
+                                        .foregroundStyle(.white)
+                                        .lineLimit(1)
+                                    
+                                    if attendee.displayName != nil, let email = attendee.email {
+                                        Text(email)
+                                            .font(.system(size: 11))
+                                            .foregroundStyle(DSColor.textTertiary)
+                                            .lineLimit(1)
+                                    }
+                                }
+                                
+                                Spacer()
+                                
+                                // Response Status Icon
+                                if let status = attendee.responseStatus {
+                                    switch status.lowercased() {
+                                    case "accepted":
+                                        Image(systemName: "checkmark.circle.fill")
+                                            .foregroundStyle(DSColor.success)
+                                            .font(.system(size: 14))
+                                    case "declined":
+                                        Image(systemName: "xmark.circle.fill")
+                                            .foregroundStyle(DSColor.error)
+                                            .font(.system(size: 14))
+                                    case "tentative":
+                                        Image(systemName: "questionmark.circle.fill")
+                                            .foregroundStyle(DSColor.amber)
+                                            .font(.system(size: 14))
+                                    default:
+                                        EmptyView()
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    .padding(.top, DSSpacing.xxs)
+                }
+                .glassCard(tint: DSColor.cyan)
             }
         }
     }
@@ -301,6 +370,7 @@ struct NotificationPayload: Identifiable {
     let htmlLink: String?
     let taskId: String?
     let eventId: String?
+    let attendees: [GoogleCalendarService.GoogleAttendee]?
     
     // Build from notification userInfo
     static func from(userInfo: [AnyHashable: Any]) -> NotificationPayload? {
@@ -325,7 +395,8 @@ struct NotificationPayload: Identifiable {
                 meetingLink: nil,
                 htmlLink: nil,
                 taskId: taskId,
-                eventId: nil
+                eventId: nil,
+                attendees: nil
             )
         } else if type == "event" {
             let eventTitle = userInfo[NotificationManager.eventTitleKey] as? String ?? "Event"
@@ -354,7 +425,8 @@ struct NotificationPayload: Identifiable {
                 meetingLink: meetingLink,
                 htmlLink: nil,
                 taskId: nil,
-                eventId: userInfo[NotificationManager.eventIdKey] as? String
+                eventId: userInfo[NotificationManager.eventIdKey] as? String,
+                attendees: nil // Can't easily pass full attendee array through APNs payload; relying on fetch if needed
             )
         }
         
@@ -378,7 +450,8 @@ struct NotificationPayload: Identifiable {
             meetingLink: event.hangoutLink,
             htmlLink: event.htmlLink,
             taskId: nil,
-            eventId: event.id
+            eventId: event.id,
+            attendees: event.attendees
         )
     }
     
@@ -399,7 +472,8 @@ struct NotificationPayload: Identifiable {
             meetingLink: nil,
             htmlLink: nil,
             taskId: task.id,
-            eventId: nil
+            eventId: nil,
+            attendees: nil
         )
     }
 }
