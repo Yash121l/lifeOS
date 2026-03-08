@@ -8,10 +8,27 @@ import GoogleSignIn
 final class AuthService {
     static let shared = AuthService()
     
-    var currentUser: User?
+    var currentUser: User? {
+        didSet {
+            // Update analytics when user changes
+            if let user = currentUser {
+                AnalyticsManager.setUserID(user.uid)
+                AnalyticsManager.setUserProperty(user.email, forName: "email")
+            } else {
+                AnalyticsManager.setUserID(nil)
+            }
+        }
+    }
+    
     var isSignedIn: Bool { currentUser != nil }
     var isLoading = true
-    var errorMessage: String?
+    var errorMessage: String? {
+        didSet {
+            if let msg = errorMessage {
+                Logger.e("Auth error: \(msg)", category: .auth)
+            }
+        }
+    }
     
     /// Google access token for Calendar API — available after Google Sign-In
     var googleAccessToken: String?
@@ -37,6 +54,7 @@ final class AuthService {
     private var authStateHandle: AuthStateDidChangeListenerHandle?
     
     private init() {
+        Logger.i("Initializing AuthService", category: .auth)
         authStateHandle = Auth.auth().addStateDidChangeListener { [weak self] _, user in
             self?.currentUser = user
             self?.isLoading = false
@@ -101,6 +119,7 @@ final class AuthService {
             let authResult = try await Auth.auth().signIn(with: credential)
             currentUser = authResult.user
             
+            
             // Store access token for Calendar API
             await MainActor.run {
                 googleAccessToken = user.accessToken.tokenString
@@ -108,6 +127,9 @@ final class AuthService {
                 calService.accessToken = user.accessToken.tokenString
                 calService.userEmail = user.profile?.email
             }
+            
+            AnalyticsManager.logEvent(.login, parameters: ["method": "google"])
+            Logger.i("Successfully signed in with Google | User: \(user.profile?.email ?? "")", category: .auth)
             
         } catch {
             if (error as NSError).code != GIDSignInError.canceled.rawValue {
@@ -160,8 +182,9 @@ final class AuthService {
                 googleAccessToken = user.accessToken.tokenString
                 GoogleCalendarService.shared.accessToken = user.accessToken.tokenString
             }
+            Logger.d("Google token refreshed successfully", category: .auth)
         } catch {
-            print("Token refresh failed: \(error)")
+            Logger.w("Token refresh failed: \(error.localizedDescription)", category: .auth)
             await MainActor.run {
                 googleAccessToken = nil
                 GoogleCalendarService.shared.disconnect()
@@ -205,6 +228,8 @@ final class AuthService {
         do {
             let result = try await Auth.auth().signIn(withEmail: email, password: password)
             currentUser = result.user
+            AnalyticsManager.logEvent(.login, parameters: ["method": "email"])
+            Logger.i("Successfully signed in with Email", category: .auth)
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -220,6 +245,8 @@ final class AuthService {
             changeRequest.displayName = displayName
             try await changeRequest.commitChanges()
             currentUser = Auth.auth().currentUser
+            AnalyticsManager.logEvent(.signUp, parameters: ["method": "email"])
+            Logger.i("Successfully signed up with Email", category: .auth)
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -260,6 +287,8 @@ final class AuthService {
                     }
                 }
                 currentUser = Auth.auth().currentUser
+                AnalyticsManager.logEvent(.login, parameters: ["method": "apple"])
+                Logger.i("Successfully signed in with Apple", category: .auth)
             } catch {
                 errorMessage = error.localizedDescription
             }
@@ -278,6 +307,8 @@ final class AuthService {
             googleAccessToken = nil
             GoogleCalendarService.shared.disconnect()
             currentUser = nil
+            AnalyticsManager.logEvent(.logout)
+            Logger.i("User signed out successfully", category: .auth)
         } catch {
             errorMessage = error.localizedDescription
         }

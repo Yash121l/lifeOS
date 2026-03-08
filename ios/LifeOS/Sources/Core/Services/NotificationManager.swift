@@ -274,4 +274,29 @@ final class NotificationManager: NSObject {
         f.dateFormat = "h:mm a"
         return f.string(from: date)
     }
+    
+    // MARK: - Testing
+    
+    func sendTestNotification() {
+        guard isAuthorized else {
+            Logger.w("Cannot send test notification: Not authorized", category: .notifications)
+            return
+        }
+        
+        let content = UNMutableNotificationContent()
+        content.title = "✅ Test Notification"
+        content.body = "Notifications are working properly!"
+        content.sound = .default
+        
+        let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 5.0, repeats: false)
+        let request = UNNotificationRequest(identifier: "test-notification-\(UUID().uuidString)", content: content, trigger: trigger)
+        
+        center.add(request) { error in
+            if let error = error {
+                Logger.e("Failed to send test notification", error: error, category: .notifications)
+            } else {
+                Logger.i("Test notification scheduled successfully", category: .notifications)
+            }
+        }
+    }
 }

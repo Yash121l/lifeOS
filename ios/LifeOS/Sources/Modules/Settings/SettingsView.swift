@@ -213,6 +213,27 @@ struct SettingsView: View {
                         }
                     }
                 }
+                
+                if notifManager.isAuthorized {
+                    settingsDivider
+                    
+                    Button {
+                        DSHaptics.light()
+                        notifManager.sendTestNotification()
+                    } label: {
+                        settingsRow(icon: "bell.badge.fill", iconColor: DSColor.info) {
+                            HStack {
+                                Text("Test Notification")
+                                    .font(DSFont.body())
+                                    .foregroundStyle(.white)
+                                Spacer()
+                                Text("Sends in 5s")
+                                    .font(DSFont.captionSmall())
+                                    .foregroundStyle(DSColor.textTertiary)
+                            }
+                        }
+                    }
+                }
             }
             .glassCard(padding: 0)
         }

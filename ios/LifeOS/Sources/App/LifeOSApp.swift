@@ -1,6 +1,7 @@
 import SwiftUI
 import FirebaseCore
 import FirebaseFirestore
+import FirebaseCrashlytics
 import GoogleSignIn
 import UserNotifications
 

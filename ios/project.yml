@@ -24,6 +24,8 @@ targets:
         product: FirebaseFirestore
       - package: Firebase
         product: FirebaseAnalytics
+      - package: Firebase
+        product: FirebaseCrashlytics
       - package: GoogleSignIn
         product: GoogleSignIn
       - target: LifeOSWidget

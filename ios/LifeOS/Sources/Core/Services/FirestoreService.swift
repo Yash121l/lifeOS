@@ -20,7 +20,9 @@ final class FirestoreService {
     
     private var listeners: [ListenerRegistration] = []
     
-    private init() {}
+    private init() {
+        Logger.i("Initializing FirestoreService", category: .database)
+    }
     
     // MARK: - Listener Management
     
@@ -53,10 +55,19 @@ final class FirestoreService {
         let listener = tasksCollection(userId: userId)
             .order(by: "createdAt", descending: true)
             .addSnapshotListener { [weak self] snapshot, error in
+                if let error = error {
+                    Logger.e("Failed to listen to tasks", error: error, category: .database)
+                    return
+                }
                 guard let snapshot else { return }
                 self?.isFromCache = snapshot.metadata.isFromCache
                 self?.tasks = snapshot.documents.compactMap { doc in
-                    try? doc.data(as: TaskItem.self)
+                    do {
+                        return try doc.data(as: TaskItem.self)
+                    } catch {
+                        Logger.e("Failed to decode TaskItem", error: error, category: .database)
+                        return nil
+                    }
                 }
                 self?.refreshWidgetData()
             }
@@ -66,22 +77,46 @@ final class FirestoreService {
     func saveTask(_ task: TaskItem, userId: String) async throws {
         network.markPendingWrite()
         var t = task
+        let isNew = t.id.isEmpty
+        if isNew { t.id = UUID().uuidString }
+        let wasAlreadyCompleted = tasks.first(where: { $0.id == t.id })?.isCompleted ?? false
+        
         t.userId = userId
         t.updatedAt = .now
-        try tasksCollection(userId: userId).document(t.id).setData(from: t)
         
-        // Schedule or cancel notification
-        if !t.isCompleted {
-            NotificationManager.shared.scheduleTaskReminder(task: t)
-        } else {
-            NotificationManager.shared.cancelTaskReminder(taskId: t.id)
+        do {
+            try tasksCollection(userId: userId).document(t.id).setData(from: t)
+            Logger.i("Saved Task \(t.id)", category: .database)
+            
+            // Analytics
+            if isNew {
+                AnalyticsManager.logEvent(.taskCreated)
+            } else if t.isCompleted && !wasAlreadyCompleted {
+                AnalyticsManager.logEvent(.taskCompleted)
+            }
+            
+            // Schedule or cancel notification
+            if !t.isCompleted {
+                NotificationManager.shared.scheduleTaskReminder(task: t)
+            } else {
+                NotificationManager.shared.cancelTaskReminder(taskId: t.id)
+            }
+        } catch {
+            Logger.e("Failed to save task \(t.id)", error: error, category: .database)
+            throw error
         }
     }
     
     func deleteTask(_ taskId: String, userId: String) async throws {
         network.markPendingWrite()
-        try await tasksCollection(userId: userId).document(taskId).delete()
-        NotificationManager.shared.cancelTaskReminder(taskId: taskId)
+        do {
+            try await tasksCollection(userId: userId).document(taskId).delete()
+            Logger.i("Deleted Task \(taskId)", category: .database)
+            NotificationManager.shared.cancelTaskReminder(taskId: taskId)
+        } catch {
+            Logger.e("Failed to delete task \(taskId)", error: error, category: .database)
+            throw error
+        }
     }
     
     // MARK: - Transactions
@@ -108,12 +143,24 @@ final class FirestoreService {
         var t = transaction
         t.userId = userId
         t.updatedAt = .now
-        try transactionsCollection(userId: userId).document(t.id).setData(from: t)
+        do {
+            try transactionsCollection(userId: userId).document(t.id).setData(from: t)
+            Logger.i("Saved Transaction \(t.id)", category: .database)
+        } catch {
+            Logger.e("Failed to save transaction \(t.id)", error: error, category: .database)
+            throw error
+        }
     }
     
     func deleteTransaction(_ transactionId: String, userId: String) async throws {
         network.markPendingWrite()
-        try await transactionsCollection(userId: userId).document(transactionId).delete()
+        do {
+            try await transactionsCollection(userId: userId).document(transactionId).delete()
+            Logger.i("Deleted Transaction \(transactionId)", category: .database)
+        } catch {
+            Logger.e("Failed to delete transaction \(transactionId)", error: error, category: .database)
+            throw error
+        }
     }
     
     // MARK: - Notes
