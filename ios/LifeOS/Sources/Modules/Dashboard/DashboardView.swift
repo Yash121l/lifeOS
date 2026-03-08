@@ -3,6 +3,7 @@ import SwiftUI
 struct DashboardView: View {
     @State private var authService = AuthService.shared
     @State private var store = FirestoreService.shared
+    @State private var calService = GoogleCalendarService.shared
     @State private var showSettings = false
     
     private var userId: String { authService.currentUser?.uid ?? "" }
@@ -17,16 +18,65 @@ struct DashboardView: View {
         }
     }
     
-    private var todaysBlocks: [TimeBlock] {
-        store.timeBlocks
-            .filter { Calendar.current.isDateInToday($0.startTime) }
-            .sorted { $0.startTime < $1.startTime }
+    
+    // MARK: - Unified Schedule
+    
+    struct UnifiedEvent: Identifiable {
+        let id: String
+        let title: String
+        let startTime: Date
+        let endTime: Date
+        let colorHex: String
+        let isGoogleEvent: Bool
+        let hasLink: Bool
+        
+        var formattedDuration: String {
+            let mins = Int(endTime.timeIntervalSince(startTime) / 60)
+            if mins < 60 { return "\(mins)m" }
+            let h = mins / 60
+            let m = mins % 60
+            return m > 0 ? "\(h)h \(m)m" : "\(h)h"
+        }
     }
     
-    private var currentBlock: TimeBlock? {
+    private var todaysEvents: [UnifiedEvent] {
+        var merged: [UnifiedEvent] = []
         let now = Date()
-        return todaysBlocks.first { $0.startTime <= now && $0.endTime > now }
+        
+        // Add TimeBlocks
+        let blocks = store.timeBlocks.filter { Calendar.current.isDateInToday($0.startTime) }
+        merged.append(contentsOf: blocks.map {
+            UnifiedEvent(id: $0.id, title: $0.title, startTime: $0.startTime, endTime: $0.endTime, colorHex: $0.colorHex, isGoogleEvent: false, hasLink: false)
+        })
+        
+        // Add Google Events
+        let events = calService.events.filter { event in
+            guard let start = event.startDate else { return false }
+            return Calendar.current.isDateInToday(start) && !event.isAllDay
+        }
+        
+        merged.append(contentsOf: events.compactMap { event -> UnifiedEvent? in
+            guard let start = event.startDate, let end = event.endDate else { return nil }
+            return UnifiedEvent(
+                id: event.id,
+                title: event.title,
+                startTime: start,
+                endTime: end,
+                colorHex: "#4285F4", // Google Blue
+                isGoogleEvent: true,
+                hasLink: event.hangoutLink != nil
+            )
+        })
+        
+        return merged.sorted { $0.startTime < $1.startTime }
     }
+    
+    private var currentEvent: UnifiedEvent? {
+        let now = Date()
+        return todaysEvents.first { $0.startTime <= now && $0.endTime > now }
+    }
+    
+    // MARK: - Task Stats
     
     private var pendingTasks: [TaskItem] {
         Array(store.tasks
@@ -80,6 +130,11 @@ struct DashboardView: View {
             .sheet(isPresented: $showSettings) {
                 SettingsView()
             }
+            .task {
+                if calService.isConnected && calService.events.isEmpty {
+                    await calService.performSync()
+                }
+            }
         }
     }
     
@@ -105,7 +160,7 @@ struct DashboardView: View {
         HStack(spacing: DSSpacing.sm) {
             miniStat(value: "\(pendingTasks.count)", label: "Pending", icon: "circle", tint: DSColor.amber)
             miniStat(value: "\(completedToday)", label: "Done", icon: "checkmark.circle.fill", tint: DSColor.success)
-            miniStat(value: "\(todaysBlocks.count)", label: "Events", icon: "calendar", tint: DSColor.cyan)
+            miniStat(value: "\(todaysEvents.count)", label: "Events", icon: "calendar", tint: DSColor.cyan)
         }
     }
     
@@ -131,23 +186,23 @@ struct DashboardView: View {
     
     private var timelineSection: some View {
         VStack(alignment: .leading, spacing: DSSpacing.sm) {
-            DSSectionHeader("Today's Schedule", count: todaysBlocks.count)
+            DSSectionHeader("Today's Schedule", count: todaysEvents.count)
             
-            if todaysBlocks.isEmpty {
+            if todaysEvents.isEmpty {
                 DSEmptyState(icon: "calendar", title: "No events today", subtitle: "Your schedule is clear")
                     .glassCard()
             } else {
                 VStack(spacing: DSSpacing.xs) {
-                    ForEach(todaysBlocks) { block in
-                        timeBlockRow(block)
+                    ForEach(todaysEvents) { event in
+                        timeBlockRow(event)
                     }
                 }
             }
         }
     }
     
-    private func timeBlockRow(_ block: TimeBlock) -> some View {
-        let isCurrent = currentBlock?.id == block.id
+    private func timeBlockRow(_ block: UnifiedEvent) -> some View {
+        let isCurrent = currentEvent?.id == block.id
         let blockColor = Color(hex: block.colorHex)
         
         return HStack(spacing: DSSpacing.sm) {
@@ -170,14 +225,29 @@ struct DashboardView: View {
             
             // Content
             VStack(alignment: .leading, spacing: DSSpacing.xxxs) {
-                Text(block.title)
-                    .font(DSFont.headline())
-                    .foregroundStyle(.white)
+                HStack(spacing: DSSpacing.xs) {
+                    Text(block.title)
+                        .font(DSFont.headline())
+                        .foregroundStyle(.white)
+                        .lineLimit(1)
+                    
+                    if block.isGoogleEvent {
+                        Image(systemName: "g.circle.fill")
+                            .font(.system(size: 10))
+                            .foregroundStyle(Color.white.opacity(0.8))
+                    }
+                }
                 
                 HStack(spacing: DSSpacing.xs) {
                     Text(block.formattedDuration)
                         .font(DSFont.captionSmall())
                         .foregroundStyle(DSColor.textTertiary)
+                    
+                    if block.hasLink {
+                        Image(systemName: "video.fill")
+                            .font(.system(size: 8))
+                            .foregroundStyle(DSColor.textTertiary)
+                    }
                     
                     if isCurrent {
                         Text("NOW")

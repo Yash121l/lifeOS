@@ -67,11 +67,14 @@ final class NotificationManager: NSObject {
     // MARK: - Authorization
     
     func requestAuthorization() async {
-        do {
-            let granted = try await center.requestAuthorization(options: [.alert, .sound, .badge, .provisional])
-            await MainActor.run { isAuthorized = granted }
-        } catch {
-            print("Notification authorization failed: \(error)")
+        center.requestAuthorization(options: [.alert, .sound, .badge]) { [weak self] granted, error in
+            if let error = error {
+                Logger.e("Error requesting notification authorization: \(error.localizedDescription)", category: .app)
+            }
+            // Update status on main thread
+            DispatchQueue.main.async {
+                self?.isAuthorized = granted
+            }
         }
     }
     
@@ -164,7 +167,9 @@ final class NotificationManager: NSObject {
         
         let request = UNNotificationRequest(identifier: "task-\(task.id)", content: content, trigger: trigger)
         center.add(request) { error in
-            if let error { print("Failed to schedule task notification: \(error)") }
+            if let error = error {
+                Logger.e("Failed to schedule task reminder: \(error.localizedDescription)", category: .app)
+            }
         }
     }
     
@@ -236,7 +241,9 @@ final class NotificationManager: NSObject {
         
         let request = UNNotificationRequest(identifier: "event-\(eventId)", content: content, trigger: trigger)
         center.add(request) { error in
-            if let error { print("Failed to schedule event notification: \(error)") }
+            if let error = error {
+                Logger.e("Failed to schedule event reminder: \(error.localizedDescription)", category: .app)
+            }
         }
     }
     

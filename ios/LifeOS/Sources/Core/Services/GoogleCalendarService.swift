@@ -129,7 +129,7 @@ final class GoogleCalendarService {
                 }
             }
         } catch {
-            print("Failed to fetch calendar list: \(error)")
+            Logger.e("Failed to fetch calendar list: \(error)", category: .network)
         }
     }
     
@@ -158,7 +158,7 @@ final class GoogleCalendarService {
                 events = response.items?.filter { $0.status != "cancelled" } ?? []
             }
         } catch {
-            print("Failed to fetch events: \(error)")
+            Logger.e("Failed to fetch events: \(error)", category: .network)
         }
     }
     
@@ -179,7 +179,7 @@ final class GoogleCalendarService {
             let response = try JSONDecoder().decode(EventsListResponse.self, from: data)
             return response.items?.filter { $0.status != "cancelled" } ?? []
         } catch {
-            print("Failed to fetch events: \(error)")
+            Logger.e("Failed to fetch events range: \(error)", category: .network)
             return []
         }
     }
@@ -210,7 +210,7 @@ final class GoogleCalendarService {
             let (_, response) = try await URLSession.shared.data(for: request)
             return (response as? HTTPURLResponse)?.statusCode == 200
         } catch {
-            print("Failed to create event: \(error)")
+            Logger.e("Failed to create event: \(error)", category: .network)
             return false
         }
     }
@@ -231,7 +231,7 @@ final class GoogleCalendarService {
             let code = (response as? HTTPURLResponse)?.statusCode ?? 0
             return code == 204 || code == 200
         } catch {
-            print("Failed to delete event: \(error)")
+            Logger.e("Failed to delete event: \(error)", category: .network)
             return false
         }
     }
