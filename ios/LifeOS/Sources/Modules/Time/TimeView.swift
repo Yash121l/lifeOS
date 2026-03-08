@@ -186,14 +186,20 @@ struct TimeView: View {
                                 .frame(width: 4, height: 4)
                         }
                         .frame(width: 44, height: 72)
-                        .background(
-                            RoundedRectangle(cornerRadius: DSRadius.md)
-                                .fill(isSelected ? DSColor.accent : (isToday ? DSColor.surfaceElevated : .clear))
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: DSRadius.md)
-                                        .stroke(isToday && !isSelected ? DSColor.accent.opacity(0.3) : .clear, lineWidth: 1)
-                                )
-                        )
+                        .background {
+                            if isSelected {
+                                RoundedRectangle(cornerRadius: 22)
+                                    .fill(LinearGradient(colors: [DSColor.accent, DSColor.accent.opacity(0.8)], startPoint: .topLeading, endPoint: .bottomTrailing))
+                                    .shadow(color: DSColor.accent.opacity(0.4), radius: 8, x: 0, y: 4)
+                            } else if isToday {
+                                RoundedRectangle(cornerRadius: 22)
+                                    .fill(DSColor.surfaceElevated)
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 22)
+                                            .stroke(DSColor.accent.opacity(0.3), lineWidth: 1)
+                                    )
+                            }
+                        }
                     }
                 }
             }
@@ -348,10 +354,10 @@ struct TimeView: View {
                     .frame(width: blockWidth)
                     .background(
                         RoundedRectangle(cornerRadius: DSRadius.sm)
-                            .fill(Color(red: 0.26, green: 0.52, blue: 0.96).opacity(0.15))
+                            .fill(Color(red: 0.26, green: 0.52, blue: 0.96).opacity(0.25))
                             .overlay(
                                 RoundedRectangle(cornerRadius: DSRadius.sm)
-                                    .stroke(Color(red: 0.26, green: 0.52, blue: 0.96).opacity(0.3), lineWidth: 1)
+                                    .stroke(Color(red: 0.26, green: 0.52, blue: 0.96).opacity(0.6), lineWidth: 1)
                             )
                     )
                     .offset(x: timelineLeading, y: 2)
@@ -403,8 +409,8 @@ struct TimeView: View {
                         // Only show times if height is enough
                         if height > 36 {
                             Text("\(event.startTime, format: .dateTime.hour().minute()) – \(event.endTime, format: .dateTime.hour().minute())")
-                                .font(.system(size: 9))
-                                .foregroundStyle(.white.opacity(0.7))
+                                .font(.system(size: 10, weight: .medium, design: .rounded))
+                                .foregroundStyle(event.color.opacity(0.9))
                         }
                     }
                     .padding(.leading, DSSpacing.xs)
@@ -415,10 +421,11 @@ struct TimeView: View {
                 .frame(width: columnWidth - 2, height: height) // slight separation between cols
                 .background(
                     RoundedRectangle(cornerRadius: DSRadius.sm)
-                        .fill(event.color.opacity(0.15))
+                        .fill(Material.ultraThin)
+                        .background(event.color.opacity(0.2))
                         .overlay(
                             RoundedRectangle(cornerRadius: DSRadius.sm)
-                                .stroke(event.color.opacity(0.3), lineWidth: 1)
+                                .stroke(event.color.opacity(0.4), lineWidth: 1)
                         )
                 )
                 .offset(x: xOffset, y: yOffset)
@@ -459,22 +466,29 @@ struct TimeView: View {
         return HStack(spacing: 0) {
             // Time label — sits in the same 44pt column as hour labels
             Text(currentTime, format: .dateTime.hour().minute())
-                .font(.system(size: 9, weight: .bold, design: .monospaced))
+                .font(.system(size: 10, weight: .bold, design: .rounded))
                 .foregroundStyle(DSColor.error)
                 .frame(width: 44, alignment: .trailing)
                 .padding(.trailing, 4)
             
             // Circle dot at start of line
-            Circle()
-                .fill(DSColor.error)
-                .frame(width: 8, height: 8)
+            ZStack {
+                Circle()
+                    .fill(DSColor.error)
+                    .frame(width: 10, height: 10)
+                Circle()
+                    .fill(DSColor.error.opacity(0.3))
+                    .frame(width: 24, height: 24) // Pulses behind it
+            }
+            .offset(x: -4)
             
             // Line extending to the right
             Rectangle()
                 .fill(DSColor.error)
-                .frame(height: 1.5)
+                .frame(height: 2)
+                .shadow(color: DSColor.error.opacity(0.5), radius: 2, x: 0, y: 1)
         }
-        .offset(y: yOffset - 4)
+        .offset(y: yOffset - 5)
     }
     
     // MARK: - Helpers

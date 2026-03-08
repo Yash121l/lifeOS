@@ -8,13 +8,13 @@ struct DashboardView: View {
     
     private var userId: String { authService.currentUser?.uid ?? "" }
     
-    private var greeting: String {
+    private var greetingWithIcon: (String, String) {
         let hour = Calendar.current.component(.hour, from: Date())
         switch hour {
-        case 5..<12: return "Good Morning"
-        case 12..<17: return "Good Afternoon"
-        case 17..<21: return "Good Evening"
-        default: return "Good Night"
+        case 5..<12: return ("Good Morning", "sun.max.fill")
+        case 12..<17: return ("Good Afternoon", "sun.haze.fill")
+        case 17..<21: return ("Good Evening", "sunset.fill")
+        default: return ("Good Night", "moon.stars.fill")
         }
     }
     
@@ -141,13 +141,20 @@ struct DashboardView: View {
     // MARK: - Header
     
     private var headerSection: some View {
-        VStack(alignment: .leading, spacing: DSSpacing.xxs) {
-            Text("\(greeting),")
-                .font(DSFont.subheadline())
-                .foregroundStyle(DSColor.textSecondary)
+        let (greeting, icon) = greetingWithIcon
+        
+        return VStack(alignment: .leading, spacing: DSSpacing.xxs) {
+            HStack(spacing: DSSpacing.xs) {
+                Image(systemName: icon)
+                    .foregroundStyle(DSColor.accent)
+                    .font(.system(size: 14))
+                Text("\(greeting),")
+                    .font(DSFont.subheadline())
+                    .foregroundStyle(DSColor.textSecondary)
+            }
             
             Text(authService.displayName)
-                .font(DSFont.largeTitle())
+                .font(.system(size: 34, weight: .bold, design: .rounded))
                 .foregroundStyle(.white)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -168,10 +175,11 @@ struct DashboardView: View {
         VStack(spacing: DSSpacing.xs) {
             HStack(spacing: DSSpacing.xxs) {
                 Image(systemName: icon)
-                    .font(.system(size: 11))
+                    .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(tint)
+                    .shadow(color: tint.opacity(0.5), radius: 4, x: 0, y: 0)
                 Text(value)
-                    .font(DSFont.title())
+                    .font(.system(size: 24, weight: .bold, design: .rounded))
                     .foregroundStyle(.white)
             }
             Text(label)
@@ -179,7 +187,15 @@ struct DashboardView: View {
                 .foregroundStyle(DSColor.textTertiary)
         }
         .frame(maxWidth: .infinity)
-        .glassCard(tint: tint, padding: DSSpacing.sm)
+        .padding(.vertical, DSSpacing.md)
+        .background(
+            RoundedRectangle(cornerRadius: DSRadius.lg)
+                .fill(DSColor.surface)
+                .overlay(
+                    RoundedRectangle(cornerRadius: DSRadius.lg)
+                        .stroke(LinearGradient(colors: [tint.opacity(0.3), .clear], startPoint: .topLeading, endPoint: .bottomTrailing), lineWidth: 1)
+                )
+        )
     }
     
     // MARK: - Timeline
@@ -205,76 +221,86 @@ struct DashboardView: View {
         let isCurrent = currentEvent?.id == block.id
         let blockColor = Color(hex: block.colorHex)
         
-        return HStack(spacing: DSSpacing.sm) {
-            // Time
+        return HStack(spacing: 0) {
+            // Time constraints (fixed width column)
             VStack(alignment: .trailing, spacing: 2) {
                 Text(block.startTime, format: .dateTime.hour().minute())
                     .font(DSFont.caption())
-                    .foregroundStyle(DSColor.textSecondary)
+                    .foregroundStyle(isCurrent ? blockColor : DSColor.textSecondary)
+                    .fontWeight(isCurrent ? .bold : .regular)
                 Text(block.endTime, format: .dateTime.hour().minute())
                     .font(DSFont.captionSmall())
                     .foregroundStyle(DSColor.textTertiary)
             }
             .frame(width: 50, alignment: .trailing)
+            .padding(.trailing, DSSpacing.sm)
             
-            // Color bar
-            RoundedRectangle(cornerRadius: 2)
-                .fill(blockColor)
-                .frame(width: 3)
-                .padding(.vertical, 4)
-            
-            // Content
-            VStack(alignment: .leading, spacing: DSSpacing.xxxs) {
-                HStack(spacing: DSSpacing.xs) {
-                    Text(block.title)
-                        .font(DSFont.headline())
-                        .foregroundStyle(.white)
-                        .lineLimit(1)
-                    
-                    if block.isGoogleEvent {
-                        Image(systemName: "g.circle.fill")
-                            .font(.system(size: 10))
-                            .foregroundStyle(Color.white.opacity(0.8))
-                    }
-                }
+            // Continuous Timeline aesthetic
+            ZStack {
+                Rectangle()
+                    .fill(DSColor.cardBorder)
+                    .frame(width: 2)
                 
-                HStack(spacing: DSSpacing.xs) {
-                    Text(block.formattedDuration)
-                        .font(DSFont.captionSmall())
-                        .foregroundStyle(DSColor.textTertiary)
-                    
-                    if block.hasLink {
-                        Image(systemName: "video.fill")
-                            .font(.system(size: 8))
-                            .foregroundStyle(DSColor.textTertiary)
-                    }
-                    
-                    if isCurrent {
-                        Text("NOW")
-                            .font(.system(size: 9, weight: .bold, design: .rounded))
-                            .foregroundStyle(blockColor)
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background(Capsule().fill(blockColor.opacity(0.15)))
-                    }
+                if isCurrent {
+                    Circle()
+                        .fill(blockColor)
+                        .frame(width: 10, height: 10)
+                        .background(
+                            Circle()
+                                .fill(blockColor.opacity(0.3))
+                                .frame(width: 20, height: 20)
+                        )
+                } else {
+                    Circle()
+                        .fill(blockColor)
+                        .frame(width: 6, height: 6)
                 }
             }
+            .frame(width: 24)
+            .padding(.trailing, DSSpacing.xs)
             
-            Spacer()
+            // Event Bubble
+            HStack {
+                VStack(alignment: .leading, spacing: DSSpacing.xxxs) {
+                    HStack(spacing: DSSpacing.xs) {
+                        Text(block.title)
+                            .font(.system(size: 15, weight: .semibold, design: .rounded))
+                            .foregroundStyle(.white)
+                            .lineLimit(1)
+                        
+                        if block.isGoogleEvent {
+                            Image(systemName: "link.circle.fill")
+                                .font(.system(size: 12))
+                                .foregroundStyle(Color.white.opacity(0.7))
+                        }
+                    }
+                    
+                    HStack(spacing: DSSpacing.xs) {
+                        Text(block.formattedDuration)
+                            .font(DSFont.captionSmall())
+                            .foregroundStyle(blockColor.opacity(0.8))
+                        
+                        if block.hasLink {
+                            Image(systemName: "video.fill")
+                                .font(.system(size: 10))
+                                .foregroundStyle(blockColor.opacity(0.8))
+                        }
+                    }
+                }
+                Spacer()
+            }
+            .padding(.vertical, 12)
+            .padding(.horizontal, DSSpacing.sm)
+            .background(
+                RoundedRectangle(cornerRadius: DSRadius.md)
+                    .fill(blockColor.opacity(0.12))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: DSRadius.md)
+                            .stroke(blockColor.opacity(isCurrent ? 0.4 : 0.1), lineWidth: 1)
+                    )
+            )
+            .padding(.vertical, 4)
         }
-        .padding(DSSpacing.sm)
-        .background(
-            RoundedRectangle(cornerRadius: DSRadius.md)
-                .fill(DSColor.surface)
-                .overlay(
-                    RoundedRectangle(cornerRadius: DSRadius.md)
-                        .fill(blockColor.opacity(isCurrent ? 0.08 : 0.02))
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: DSRadius.md)
-                        .stroke(isCurrent ? blockColor.opacity(0.3) : DSColor.cardBorder, lineWidth: 1)
-                )
-        )
     }
     
     // MARK: - Up Next
@@ -298,28 +324,37 @@ struct DashboardView: View {
     
     private func taskRow(_ task: TaskItem) -> some View {
         HStack(spacing: DSSpacing.sm) {
-            // Complete button
+            // Glowing Complete button
             Button {
                 DSHaptics.success()
                 var updated = task
                 updated.isCompleted = true
                 Task { try? await store.saveTask(updated, userId: userId) }
             } label: {
-                Image(systemName: task.isCompleted ? "checkmark.circle.fill" : "circle")
-                    .font(.system(size: 22))
-                    .foregroundStyle(task.isCompleted ? DSColor.success : DSColor.textTertiary)
+                ZStack {
+                    Circle()
+                        .strokeBorder(DSColor.accent.opacity(0.5), lineWidth: 1.5)
+                        .background(Circle().fill(DSColor.accent.opacity(0.1)))
+                        .frame(width: 24, height: 24)
+                    
+                    if task.isCompleted {
+                        Circle()
+                            .fill(DSColor.accent)
+                            .frame(width: 14, height: 14)
+                    }
+                }
             }
             
             VStack(alignment: .leading, spacing: DSSpacing.xxxs) {
                 Text(task.title)
-                    .font(DSFont.body())
+                    .font(.system(size: 16, weight: .medium, design: .rounded))
                     .foregroundStyle(.white)
                     .lineLimit(1)
                 
                 HStack(spacing: DSSpacing.xs) {
                     if let due = task.dueDate {
                         HStack(spacing: 2) {
-                            Image(systemName: "calendar")
+                            Image(systemName: "clock")
                             Text(due, format: .dateTime.month(.abbreviated).day())
                         }
                         .font(DSFont.captionSmall())
@@ -334,24 +369,35 @@ struct DashboardView: View {
             
             energyDots(task.energyLevel)
         }
-        .glassCard(padding: DSSpacing.sm)
+        .padding(DSSpacing.md)
+        .background(
+            RoundedRectangle(cornerRadius: DSRadius.lg)
+                .fill(DSColor.surfaceElevated.opacity(0.5))
+                .overlay(
+                    RoundedRectangle(cornerRadius: DSRadius.lg)
+                        .stroke(DSColor.cardBorder.opacity(0.5), lineWidth: 1)
+                )
+        )
     }
     
     private func priorityBadge(_ priority: Int) -> some View {
-        let (label, color): (String, Color) = {
+        let (label, color, icon): (String, Color, String) = {
             switch priority {
-            case 0: return ("Low", DSColor.success)
-            case 2: return ("High", DSColor.error)
-            default: return ("Med", DSColor.amber)
+            case 0: return ("Low", DSColor.success, "arrow.down")
+            case 2: return ("High", DSColor.error, "flame.fill")
+            default: return ("Med", DSColor.amber, "minus")
             }
         }()
         
-        return Text(label)
-            .font(.system(size: 9, weight: .semibold, design: .rounded))
-            .foregroundStyle(color)
-            .padding(.horizontal, 5)
-            .padding(.vertical, 2)
-            .background(Capsule().fill(color.opacity(0.12)))
+        return HStack(spacing: 2) {
+            Image(systemName: icon)
+            Text(label)
+        }
+        .font(.system(size: 10, weight: .bold, design: .rounded))
+        .foregroundStyle(color)
+        .padding(.horizontal, 6)
+        .padding(.vertical, 3)
+        .background(Capsule().fill(color.opacity(0.15)))
     }
     
     private func energyDots(_ level: Int) -> some View {

@@ -68,12 +68,12 @@ struct TaskListView: View {
                                 )
                         )
                         
-                        HStack(spacing: DSSpacing.xs) {
-                            DSChip(label: "All", isSelected: selectedFilter == 0) { selectedFilter = 0 }
-                            DSChip(label: "Today", icon: "sun.max.fill", isSelected: selectedFilter == 1) { selectedFilter = 1 }
-                            DSChip(label: "Upcoming", icon: "arrow.right", isSelected: selectedFilter == 2) { selectedFilter = 2 }
-                            Spacer()
+                        Picker("Filter", selection: $selectedFilter) {
+                            Text("All").tag(0)
+                            Text("Today").tag(1)
+                            Text("Upcoming").tag(2)
                         }
+                        .pickerStyle(.segmented)
                     }
                     .padding(.horizontal, DSSpacing.md)
                     .padding(.top, DSSpacing.xs)
@@ -125,8 +125,9 @@ struct TaskListView: View {
                                         .tint(DSColor.success)
                                     }
                                     .listRowBackground(Color.clear)
-                                    .listRowSeparator(.hidden)
-                                    .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
+                                    .listRowSeparator(.visible, edges: .bottom)
+                                    .listRowSeparatorTint(DSColor.cardBorder)
+                                    .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 0))
                             }
                         }
                         .listStyle(.plain)
@@ -161,21 +162,30 @@ struct TaskListView: View {
     }
     
     private func taskCard(_ task: TaskItem) -> some View {
-        HStack(spacing: DSSpacing.sm) {
+        HStack(spacing: DSSpacing.md) {
             Button {
                 DSHaptics.success()
                 var updated = task
                 updated.isCompleted.toggle()
                 Task { try? await store.saveTask(updated, userId: userId) }
             } label: {
-                Image(systemName: task.isCompleted ? "checkmark.circle.fill" : "circle")
-                    .font(.system(size: 22))
-                    .foregroundStyle(task.isCompleted ? DSColor.success : DSColor.textTertiary)
+                ZStack {
+                    Circle()
+                        .strokeBorder(DSColor.accent.opacity(0.5), lineWidth: 1.5)
+                        .background(Circle().fill(DSColor.accent.opacity(0.1)))
+                        .frame(width: 24, height: 24)
+                    
+                    if task.isCompleted {
+                        Circle()
+                            .fill(DSColor.accent)
+                            .frame(width: 14, height: 14)
+                    }
+                }
             }
             
             VStack(alignment: .leading, spacing: DSSpacing.xxxs) {
                 Text(task.title)
-                    .font(DSFont.body())
+                    .font(.system(size: 16, weight: .medium, design: .rounded))
                     .foregroundStyle(task.isCompleted ? DSColor.textTertiary : .white)
                     .strikethrough(task.isCompleted)
                     .lineLimit(1)
@@ -201,26 +211,30 @@ struct TaskListView: View {
             Spacer()
             
             Image(systemName: "chevron.right")
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(DSColor.textTertiary)
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(DSColor.textTertiary.opacity(0.5))
         }
-        .glassCard(padding: DSSpacing.sm)
+        .padding(.vertical, DSSpacing.md)
+        .padding(.horizontal, DSSpacing.md)
     }
     
     private func priorityIndicator(_ priority: Int) -> some View {
-        let (label, color): (String, Color) = {
+        let (label, color, icon): (String, Color, String) = {
             switch priority {
-            case 0: return ("Low", DSColor.success)
-            case 2: return ("High", DSColor.error)
-            default: return ("Med", DSColor.amber)
+            case 0: return ("Low", DSColor.success, "arrow.down")
+            case 2: return ("High", DSColor.error, "flame.fill")
+            default: return ("Med", DSColor.amber, "minus")
             }
         }()
         
-        return Text(label)
-            .font(.system(size: 9, weight: .semibold, design: .rounded))
-            .foregroundStyle(color)
-            .padding(.horizontal, 5)
-            .padding(.vertical, 2)
-            .background(Capsule().fill(color.opacity(0.12)))
+        return HStack(spacing: 2) {
+            Image(systemName: icon)
+            Text(label)
+        }
+        .font(.system(size: 10, weight: .bold, design: .rounded))
+        .foregroundStyle(color)
+        .padding(.horizontal, 6)
+        .padding(.vertical, 3)
+        .background(Capsule().fill(color.opacity(0.15)))
     }
 }

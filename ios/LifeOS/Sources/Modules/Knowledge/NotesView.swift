@@ -133,8 +133,9 @@ struct NotesView: View {
                                                 .tint(DSColor.amber)
                                             }
                                             .listRowBackground(Color.clear)
-                                            .listRowSeparator(.hidden)
-                                            .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
+                                            .listRowSeparator(.visible, edges: .bottom)
+                                            .listRowSeparatorTint(DSColor.cardBorder)
+                                            .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 0))
                                     }
                                 } header: {
                                     DSSectionHeader("Pinned", count: pinnedNotes.count)
@@ -170,8 +171,9 @@ struct NotesView: View {
                                                 .tint(DSColor.amber)
                                             }
                                             .listRowBackground(Color.clear)
-                                            .listRowSeparator(.hidden)
-                                            .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
+                                            .listRowSeparator(.visible, edges: .bottom)
+                                            .listRowSeparatorTint(DSColor.cardBorder)
+                                            .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 0))
                                     }
                                 } header: {
                                     DSSectionHeader("Notes", count: otherNotes.count)
@@ -252,7 +254,7 @@ struct NotesView: View {
         VStack(alignment: .leading, spacing: DSSpacing.xs) {
             HStack {
                 Text(note.title.isEmpty ? "Untitled" : note.title)
-                    .font(DSFont.headline())
+                    .font(.system(size: 16, weight: .semibold, design: .rounded))
                     .foregroundStyle(.white)
                     .lineLimit(1)
                 
@@ -276,27 +278,50 @@ struct NotesView: View {
                 HStack(spacing: DSSpacing.xxs) {
                     ForEach(note.tags.prefix(2), id: \.self) { tag in
                         Text("#\(tag)")
-                            .font(.system(size: 9, weight: .medium))
-                            .foregroundStyle(DSColor.accent)
-                            .padding(.horizontal, 4)
-                            .padding(.vertical, 2)
-                            .background(Capsule().fill(DSColor.accent.opacity(0.1)))
+                            .font(.system(size: 10, weight: .semibold, design: .rounded))
+                            .foregroundStyle(note.isPinned ? .black : DSColor.accent)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 3)
+                            .background(Capsule().fill(note.isPinned ? .white.opacity(0.8) : DSColor.accent.opacity(0.15)))
                     }
                 }
             }
             
             Text(note.updatedAt, format: .dateTime.month(.abbreviated).day())
-                .font(.system(size: 9))
-                .foregroundStyle(DSColor.textTertiary)
+                .font(.system(size: 10, weight: .medium, design: .rounded))
+                .foregroundStyle(note.isPinned ? .white.opacity(0.7) : DSColor.textTertiary)
         }
-        .frame(minHeight: 120)
-        .glassCard(padding: DSSpacing.sm)
+        .frame(minHeight: 140)
+        .padding(DSSpacing.md)
+        .background(
+            RoundedRectangle(cornerRadius: DSRadius.lg)
+                .fill(note.isPinned ? Color.clear : DSColor.surfaceElevated.opacity(0.5))
+                .background(
+                    ZStack {
+                        if note.isPinned {
+                            LinearGradient(colors: [Color(hex: "#FF7E5F"), Color(hex: "#FEB47B")], startPoint: .topLeading, endPoint: .bottomTrailing)
+                            
+                            Circle()
+                                .fill(Color.white.opacity(0.2))
+                                .frame(width: 80, height: 80)
+                                .blur(radius: 20)
+                                .offset(x: 40, y: -40)
+                        }
+                    }
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: DSRadius.lg)
+                        .stroke(note.isPinned ? .white.opacity(0.4) : DSColor.cardBorder.opacity(0.5), lineWidth: 1)
+                )
+                .clipShape(RoundedRectangle(cornerRadius: DSRadius.lg))
+        )
+        .shadow(color: note.isPinned ? Color(hex: "#FF7E5F").opacity(0.3) : .clear, radius: 8, x: 0, y: 4)
     }
     
     // MARK: - List Row
     
     private func noteListRow(_ note: NoteItem) -> some View {
-        HStack(spacing: DSSpacing.sm) {
+        HStack(spacing: DSSpacing.md) {
             VStack(alignment: .leading, spacing: DSSpacing.xxxs) {
                 HStack(spacing: DSSpacing.xs) {
                     if note.isPinned {
@@ -305,7 +330,7 @@ struct NotesView: View {
                             .foregroundStyle(DSColor.amber)
                     }
                     Text(note.title.isEmpty ? "Untitled" : note.title)
-                        .font(DSFont.body())
+                        .font(.system(size: 16, weight: .semibold, design: .rounded))
                         .foregroundStyle(.white)
                         .lineLimit(1)
                 }
@@ -317,12 +342,12 @@ struct NotesView: View {
                 
                 HStack(spacing: DSSpacing.xs) {
                     Text(note.updatedAt, format: .dateTime.month(.abbreviated).day())
-                        .font(.system(size: 9))
+                        .font(.system(size: 10, weight: .medium, design: .rounded))
                         .foregroundStyle(DSColor.textTertiary)
                     
                     ForEach(note.tags.prefix(2), id: \.self) { tag in
                         Text("#\(tag)")
-                            .font(.system(size: 9, weight: .medium))
+                            .font(.system(size: 10, weight: .semibold, design: .rounded))
                             .foregroundStyle(DSColor.accent)
                     }
                 }
@@ -331,9 +356,10 @@ struct NotesView: View {
             Spacer()
             
             Image(systemName: "chevron.right")
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(DSColor.textTertiary)
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(DSColor.textTertiary.opacity(0.5))
         }
-        .glassCard(padding: DSSpacing.sm)
+        .padding(.vertical, DSSpacing.md)
+        .padding(.horizontal, DSSpacing.md)
     }
 }

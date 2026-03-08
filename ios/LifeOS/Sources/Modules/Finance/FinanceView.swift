@@ -53,12 +53,13 @@ struct FinanceView: View {
                 ScrollView(showsIndicators: false) {
                     VStack(spacing: DSSpacing.xl) {
                         // Period selector
-                        HStack(spacing: DSSpacing.xs) {
-                            DSChip(label: "Today", isSelected: selectedPeriod == 0) { selectedPeriod = 0 }
-                            DSChip(label: "Week", isSelected: selectedPeriod == 1) { selectedPeriod = 1 }
-                            DSChip(label: "Month", isSelected: selectedPeriod == 2) { selectedPeriod = 2 }
-                            Spacer()
+                        Picker("Period", selection: $selectedPeriod) {
+                            Text("Today").tag(0)
+                            Text("Week").tag(1)
+                            Text("Month").tag(2)
                         }
+                        .pickerStyle(.segmented)
+                        .padding(.top, DSSpacing.sm)
                         
                         // Summary card
                         summaryCard
@@ -103,62 +104,73 @@ struct FinanceView: View {
     // MARK: - Summary Card
     
     private var summaryCard: some View {
-        VStack(spacing: DSSpacing.md) {
+        VStack(spacing: DSSpacing.xl) {
             // Balance
-            VStack(spacing: DSSpacing.xxs) {
+            VStack(spacing: DSSpacing.xs) {
                 Text("Net Balance")
-                    .font(DSFont.captionSmall())
-                    .foregroundStyle(DSColor.textTertiary)
+                    .font(DSFont.subheadline())
+                    .foregroundStyle(.white.opacity(0.8))
                 Text("₹\(String(format: "%.0f", balance))")
-                    .font(.system(size: 34, weight: .bold, design: .rounded))
-                    .foregroundStyle(balance >= 0 ? DSColor.success : DSColor.error)
+                    .font(.system(size: 48, weight: .bold, design: .rounded))
+                    .foregroundStyle(.white)
+                    .shadow(color: .black.opacity(0.2), radius: 2, x: 0, y: 2)
             }
             
             HStack(spacing: DSSpacing.md) {
                 // Income
                 HStack(spacing: DSSpacing.xs) {
                     Image(systemName: "arrow.down.left.circle.fill")
-                        .foregroundStyle(DSColor.success)
+                        .foregroundStyle(.white)
+                        .font(.system(size: 20))
                     VStack(alignment: .leading, spacing: 0) {
                         Text("Income")
                             .font(DSFont.captionSmall())
-                            .foregroundStyle(DSColor.textTertiary)
+                            .foregroundStyle(.white.opacity(0.7))
                         Text("₹\(String(format: "%.0f", totalIncome))")
-                            .font(DSFont.headline())
-                            .foregroundStyle(DSColor.success)
+                            .font(.system(size: 16, weight: .bold, design: .rounded))
+                            .foregroundStyle(.white)
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 
-                Rectangle()
-                    .fill(DSColor.cardBorder)
-                    .frame(width: 1, height: 30)
-                
                 // Expenses
                 HStack(spacing: DSSpacing.xs) {
                     Image(systemName: "arrow.up.right.circle.fill")
-                        .foregroundStyle(DSColor.error)
+                        .foregroundStyle(.white)
+                        .font(.system(size: 20))
                     VStack(alignment: .leading, spacing: 0) {
                         Text("Expenses")
                             .font(DSFont.captionSmall())
-                            .foregroundStyle(DSColor.textTertiary)
+                            .foregroundStyle(.white.opacity(0.7))
                         Text("₹\(String(format: "%.0f", totalExpenses))")
-                            .font(DSFont.headline())
-                            .foregroundStyle(DSColor.error)
+                            .font(.system(size: 16, weight: .bold, design: .rounded))
+                            .foregroundStyle(.white)
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
-        .padding(DSSpacing.lg)
+        .padding(DSSpacing.xl)
         .background(
-            RoundedRectangle(cornerRadius: DSRadius.xl)
-                .fill(DSColor.surface)
-                .overlay(
-                    RoundedRectangle(cornerRadius: DSRadius.xl)
-                        .stroke(DSColor.cardBorder, lineWidth: 1)
-                )
+            ZStack {
+                LinearGradient(colors: [Color(hex: "#4A00E0"), Color(hex: "#8E2DE2")], startPoint: .topLeading, endPoint: .bottomTrailing)
+                
+                // Detailed glassmorphic Mesh Overlays
+                Circle()
+                    .fill(Color(hex: "#ff00cc").opacity(0.4))
+                    .frame(width: 200, height: 200)
+                    .blur(radius: 50)
+                    .offset(x: 100, y: -50)
+                
+                Circle()
+                    .fill(Color(hex: "#333399").opacity(0.5))
+                    .frame(width: 150, height: 150)
+                    .blur(radius: 40)
+                    .offset(x: -80, y: 80)
+            }
+            .clipShape(RoundedRectangle(cornerRadius: DSRadius.xxl))
         )
+        .shadow(color: Color(hex: "#8E2DE2").opacity(0.35), radius: 15, x: 0, y: 10)
     }
     
     // MARK: - Category Breakdown
@@ -167,32 +179,47 @@ struct FinanceView: View {
         VStack(alignment: .leading, spacing: DSSpacing.sm) {
             DSSectionHeader("Spending by Category")
             
-            // Simple bar chart
-            VStack(spacing: DSSpacing.xs) {
+            VStack(spacing: DSSpacing.md) {
                 ForEach(categoryBreakdown, id: \.0) { category, amount, color in
-                    HStack(spacing: DSSpacing.sm) {
-                        Text(category)
-                            .font(DSFont.caption())
-                            .foregroundStyle(DSColor.textSecondary)
-                            .frame(width: 80, alignment: .leading)
+                    VStack(spacing: DSSpacing.xxs) {
+                        HStack {
+                            Text(category)
+                                .font(.system(size: 14, weight: .medium, design: .rounded))
+                                .foregroundStyle(.white)
+                            Spacer()
+                            Text("₹\(String(format: "%.0f", amount))")
+                                .font(.system(size: 14, weight: .semibold, design: .rounded))
+                                .foregroundStyle(DSColor.textSecondary)
+                        }
                         
                         GeometryReader { geo in
                             let maxAmount = categoryBreakdown.first?.1 ?? 1
                             let width = max(4, geo.size.width * (amount / maxAmount))
-                            RoundedRectangle(cornerRadius: 3)
-                                .fill(color)
-                                .frame(width: width, height: 20)
+                            
+                            ZStack(alignment: .leading) {
+                                Capsule()
+                                    .fill(DSColor.surfaceElevated)
+                                    .frame(height: 8)
+                                    
+                                Capsule()
+                                    .fill(LinearGradient(colors: [color.opacity(0.8), color], startPoint: .leading, endPoint: .trailing))
+                                    .frame(width: width, height: 8)
+                                    .shadow(color: color.opacity(0.5), radius: 4, x: 0, y: 0)
+                            }
                         }
-                        .frame(height: 20)
-                        
-                        Text("₹\(String(format: "%.0f", amount))")
-                            .font(DSFont.captionSmall())
-                            .foregroundStyle(DSColor.textTertiary)
-                            .frame(width: 60, alignment: .trailing)
+                        .frame(height: 8)
                     }
                 }
             }
-            .glassCard()
+            .padding(DSSpacing.md)
+            .background(
+                RoundedRectangle(cornerRadius: DSRadius.lg)
+                    .fill(DSColor.surfaceElevated.opacity(0.3))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: DSRadius.lg)
+                            .stroke(DSColor.cardBorder.opacity(0.5), lineWidth: 1)
+                    )
+            )
         }
     }
     
@@ -227,8 +254,9 @@ struct FinanceView: View {
                                 }
                             }
                             .listRowBackground(Color.clear)
-                            .listRowSeparator(.hidden)
-                            .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
+                            .listRowSeparator(.visible, edges: .bottom)
+                            .listRowSeparatorTint(DSColor.cardBorder)
+                            .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 0))
                     }
                 }
                 .listStyle(.plain)
@@ -239,20 +267,24 @@ struct FinanceView: View {
     }
     
     private func transactionRow(_ tx: TransactionItem) -> some View {
-        HStack(spacing: DSSpacing.sm) {
-            // Category icon
-            Image(systemName: tx.categoryIcon)
-                .font(.system(size: 16, weight: .light))
-                .foregroundStyle(DSColor.accent)
-                .frame(width: 40, height: 40)
-                .background(
-                    RoundedRectangle(cornerRadius: DSRadius.sm)
-                        .fill(DSColor.surfaceElevated)
-                )
+        HStack(spacing: DSSpacing.md) {
+            // Category icon with vibrant radial bounds
+            ZStack {
+                Circle()
+                    .fill(
+                        RadialGradient(colors: [DSColor.accent.opacity(0.3), DSColor.accent.opacity(0.05)], center: .center, startRadius: 0, endRadius: 20)
+                    )
+                    .overlay(Circle().stroke(DSColor.accent.opacity(0.2), lineWidth: 1))
+                    .frame(width: 44, height: 44)
+                
+                Image(systemName: tx.categoryIcon)
+                    .font(.system(size: 18, weight: .medium))
+                    .foregroundStyle(DSColor.accent)
+            }
             
             VStack(alignment: .leading, spacing: DSSpacing.xxxs) {
                 Text(tx.title)
-                    .font(DSFont.body())
+                    .font(.system(size: 16, weight: .medium, design: .rounded))
                     .foregroundStyle(.white)
                     .lineLimit(1)
                 
@@ -276,9 +308,9 @@ struct FinanceView: View {
             Spacer()
             
             Text("\(tx.isExpense ? "-" : "+")₹\(String(format: "%.0f", tx.amount))")
-                .font(DSFont.headline())
-                .foregroundStyle(tx.isExpense ? DSColor.error : DSColor.success)
+                .font(.system(size: 18, weight: .semibold, design: .rounded))
+                .foregroundStyle(tx.isExpense ? .white : DSColor.success)
         }
-        .glassCard(padding: DSSpacing.sm)
+        .padding(.vertical, DSSpacing.sm)
     }
 }
