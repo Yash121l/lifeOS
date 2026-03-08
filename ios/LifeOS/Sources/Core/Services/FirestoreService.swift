@@ -58,6 +58,7 @@ final class FirestoreService {
                 self?.tasks = snapshot.documents.compactMap { doc in
                     try? doc.data(as: TaskItem.self)
                 }
+                self?.refreshWidgetData()
             }
         listeners.append(listener)
     }
@@ -68,11 +69,19 @@ final class FirestoreService {
         t.userId = userId
         t.updatedAt = .now
         try tasksCollection(userId: userId).document(t.id).setData(from: t)
+        
+        // Schedule or cancel notification
+        if !t.isCompleted {
+            NotificationManager.shared.scheduleTaskReminder(task: t)
+        } else {
+            NotificationManager.shared.cancelTaskReminder(taskId: t.id)
+        }
     }
     
     func deleteTask(_ taskId: String, userId: String) async throws {
         network.markPendingWrite()
         try await tasksCollection(userId: userId).document(taskId).delete()
+        NotificationManager.shared.cancelTaskReminder(taskId: taskId)
     }
     
     // MARK: - Transactions
@@ -154,6 +163,7 @@ final class FirestoreService {
                 self?.timeBlocks = snapshot.documents.compactMap { doc in
                     try? doc.data(as: TimeBlock.self)
                 }
+                self?.refreshWidgetData()
             }
         listeners.append(listener)
     }
@@ -201,5 +211,69 @@ final class FirestoreService {
     func deleteProject(_ projectId: String, userId: String) async throws {
         network.markPendingWrite()
         try await projectsCollection(userId: userId).document(projectId).delete()
+    }
+    
+    // MARK: - Widget Data Refresh
+    
+    func refreshWidgetData() {
+        let now = Date()
+        let calendar = Calendar.current
+        
+        // Task stats
+        let pendingTasks = tasks.filter { !$0.isCompleted }
+        let completedToday = tasks.filter { $0.isCompleted && calendar.isDateInToday($0.updatedAt) }
+        
+        // Today's events
+        let googleEvents = GoogleCalendarService.shared.events
+        let todayGoogleEvents = googleEvents.filter { event in
+            guard let start = event.startDate else { return false }
+            return calendar.isDateInToday(start)
+        }
+        let todayTimeBlocks = timeBlocks.filter { calendar.isDateInToday($0.startTime) }
+        let totalTodayEvents = todayGoogleEvents.count + todayTimeBlocks.count
+        
+        SharedData.writeStats(pending: pendingTasks.count, completed: completedToday.count, total: tasks.count, eventCount: totalTodayEvents)
+        
+        // Next event
+        let upcomingGoogleEvents = googleEvents
+            .filter { event in
+                guard let start = event.startDate else { return false }
+                return start > now
+            }
+            .sorted { ($0.startDate ?? .distantFuture) < ($1.startDate ?? .distantFuture) }
+        
+        let upcomingTimeBlocks = timeBlocks
+            .filter { $0.startTime > now }
+            .sorted { $0.startTime < $1.startTime }
+        
+        let nextGoogleEvent = upcomingGoogleEvents.first
+        let nextTimeBlock = upcomingTimeBlocks.first
+        
+        if let gEvent = nextGoogleEvent {
+            let gTime = gEvent.startDate ?? .distantFuture
+            let tTime = nextTimeBlock?.startTime ?? .distantFuture
+            
+            if gTime <= tTime {
+                SharedData.writeNextEvent(title: gEvent.title, startTime: gEvent.startDate, endTime: gEvent.endDate, isAllDay: gEvent.isAllDay, meetingLink: gEvent.hangoutLink, location: gEvent.location, description: gEvent.description, id: gEvent.id)
+            } else if let tb = nextTimeBlock {
+                SharedData.writeNextEvent(title: tb.title, startTime: tb.startTime, endTime: tb.endTime, isAllDay: false, meetingLink: nil, location: nil, description: nil, id: tb.id)
+            }
+        } else if let tb = nextTimeBlock {
+            SharedData.writeNextEvent(title: tb.title, startTime: tb.startTime, endTime: tb.endTime, isAllDay: false, meetingLink: nil, location: nil, description: nil, id: tb.id)
+        } else {
+            SharedData.writeNextEvent(title: nil, startTime: nil, endTime: nil, isAllDay: false, meetingLink: nil, location: nil, description: nil, id: nil)
+        }
+        
+        // Encode tasks
+        let topTasks = Array(pendingTasks
+            .sorted { ($0.priority, $0.energyLevel) > ($1.priority, $1.energyLevel) }
+            .prefix(5))
+            .map { SharedData.WidgetTask(id: $0.id, title: $0.title, priority: $0.priority, dueDate: $0.dueDate, isCompleted: $0.isCompleted, energyLevel: $0.energyLevel, timeEstimateMinutes: $0.timeEstimateMinutes) }
+        SharedData.writeTasks(topTasks)
+        
+        // Encode events
+        let topEvents = Array(upcomingGoogleEvents.prefix(5))
+            .map { SharedData.WidgetEvent(id: $0.id, title: $0.title, startTime: $0.startDate, endTime: $0.endDate, isAllDay: $0.isAllDay, meetingLink: $0.hangoutLink, location: $0.location, description: $0.description) }
+        SharedData.writeEvents(topEvents)
     }
 }

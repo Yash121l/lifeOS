@@ -48,6 +48,8 @@ final class GoogleCalendarService {
         let status: String?
         let htmlLink: String?
         let colorId: String?
+        let location: String?
+        let hangoutLink: String?
         
         var title: String { summary ?? "Untitled" }
         
@@ -236,6 +238,9 @@ final class GoogleCalendarService {
             lastSyncDate = Date()
             isSyncing = false
             UserDefaults.standard.set(lastSyncDate, forKey: "lastGoogleCalendarSync")
+            
+            // Schedule notifications for upcoming events
+            NotificationManager.shared.scheduleRemindersForUpcomingEvents(fetched)
         }
     }
     

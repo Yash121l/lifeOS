@@ -1,10 +1,17 @@
 import SwiftUI
 
 struct ContentView: View {
+    @EnvironmentObject var appDelegate: AppDelegate
     @State private var authService = AuthService.shared
     @State private var firestoreService = FirestoreService.shared
     @State private var network = NetworkMonitor.shared
     @State private var selectedTab = 0
+    
+    // Deep link / notification state
+    @State private var notificationPayload: NotificationPayload?
+    @State private var showAddTask = false
+    @State private var showAddEvent = false
+    @State private var showAddNote = false
     
     var body: some View {
         Group {
@@ -50,6 +57,96 @@ struct ContentView: View {
         .animation(DSAnimation.easeMedium, value: authService.isSignedIn)
         .animation(DSAnimation.easeMedium, value: authService.isLoading)
         .preferredColorScheme(.dark)
+        // Deep link handling
+        .onOpenURL { url in
+            handleDeepLink(url)
+        }
+        // Notification tap handling
+        .onReceive(NotificationCenter.default.publisher(for: .notificationTapped)) { notification in
+            if let userInfo = notification.object as? [AnyHashable: Any],
+               let payload = NotificationPayload.from(userInfo: userInfo) {
+                notificationPayload = payload
+            }
+        }
+        // Quick action handling
+        .onReceive(NotificationCenter.default.publisher(for: .quickActionTriggered)) { notification in
+            if let item = notification.object as? UIApplicationShortcutItem {
+                handleQuickAction(item)
+            }
+        }
+        // Check for quick action on launch
+        .onAppear {
+            if let item = appDelegate.shortcutItem {
+                handleQuickAction(item)
+                appDelegate.shortcutItem = nil
+            }
+        }
+        // Notification detail sheet
+        .sheet(item: $notificationPayload) { payload in
+            NotificationDetailView(payload: payload)
+        }
+        // Quick action sheets
+        .sheet(isPresented: $showAddTask) {
+            NavigationStack {
+                TaskNLPInputView()
+            }
+        }
+        .sheet(isPresented: $showAddEvent) {
+            EventEntryView()
+        }
+        .sheet(isPresented: $showAddNote) {
+            NoteEditorView(note: nil)
+        }
+    }
+    
+    // MARK: - Deep Link Handler
+    
+    private func handleDeepLink(_ url: URL) {
+        guard url.scheme == "lifeos" else { return }
+        
+        switch url.host {
+        case "tasks":
+            selectedTab = 2
+        case "time", "schedule":
+            selectedTab = 1
+        case "finance":
+            selectedTab = 3
+        case "notes":
+            selectedTab = 4
+        case "dashboard":
+            selectedTab = 0
+        case "addtask":
+            selectedTab = 2
+            showAddTask = true
+        case "addevent":
+            selectedTab = 1
+            showAddEvent = true
+        case "addnote":
+            selectedTab = 4
+            showAddNote = true
+        default:
+            break
+        }
+    }
+    
+    // MARK: - Quick Action Handler
+    
+    private func handleQuickAction(_ item: UIApplicationShortcutItem) {
+        switch item.type {
+        case "com.yashlunawat.LifeOS.addTask":
+            selectedTab = 2
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { showAddTask = true }
+        case "com.yashlunawat.LifeOS.addEvent":
+            selectedTab = 1
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { showAddEvent = true }
+        case "com.yashlunawat.LifeOS.viewSchedule":
+            selectedTab = 1
+        case "com.yashlunawat.LifeOS.quickNote":
+            selectedTab = 4
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { showAddNote = true }
+        default:
+            break
+        }
     }
     
     // MARK: - Network Banner

@@ -8,6 +8,7 @@ struct SettingsView: View {
     @State private var showSignOutAlert = false
     @State private var syncMessage: String?
     @State private var isConnecting = false
+    @State private var notifManager = NotificationManager.shared
     
     var body: some View {
         NavigationStack {
@@ -15,6 +16,7 @@ struct SettingsView: View {
                 VStack(spacing: DSSpacing.xl) {
                     profileCard
                     preferencesSection
+                    notificationsSection
                     googleCalendarSection
                     accountSection
                     
@@ -120,6 +122,95 @@ struct SettingsView: View {
                         }
                         .tint(DSColor.accent)
                         .labelsHidden()
+                    }
+                }
+            }
+            .glassCard(padding: 0)
+        }
+    }
+    
+    // MARK: - Notifications
+    
+    private var notificationsSection: some View {
+        VStack(alignment: .leading, spacing: DSSpacing.sm) {
+            sectionLabel("NOTIFICATIONS")
+            
+            VStack(spacing: 0) {
+                settingsRow(icon: "checkmark.circle.fill", iconColor: DSColor.accent) {
+                    HStack {
+                        Text("Task Reminders")
+                            .font(DSFont.body())
+                            .foregroundStyle(.white)
+                        Spacer()
+                        Toggle("", isOn: $notifManager.taskRemindersEnabled)
+                            .labelsHidden()
+                            .tint(DSColor.success)
+                            .onChange(of: notifManager.taskRemindersEnabled) { _, _ in
+                                notifManager.saveSettings()
+                            }
+                    }
+                }
+                
+                settingsDivider
+                
+                settingsRow(icon: "calendar.badge.clock", iconColor: DSColor.cyan) {
+                    HStack {
+                        Text("Event Reminders")
+                            .font(DSFont.body())
+                            .foregroundStyle(.white)
+                        Spacer()
+                        Toggle("", isOn: $notifManager.eventRemindersEnabled)
+                            .labelsHidden()
+                            .tint(DSColor.success)
+                            .onChange(of: notifManager.eventRemindersEnabled) { _, _ in
+                                notifManager.saveSettings()
+                            }
+                    }
+                }
+                
+                settingsDivider
+                
+                settingsRow(icon: "clock.fill", iconColor: DSColor.amber) {
+                    HStack {
+                        Text("Remind Before")
+                            .font(DSFont.body())
+                            .foregroundStyle(.white)
+                        Spacer()
+                        Picker("Minutes", selection: $notifManager.reminderMinutesBefore) {
+                            Text("5 min").tag(5)
+                            Text("10 min").tag(10)
+                            Text("15 min").tag(15)
+                            Text("30 min").tag(30)
+                            Text("1 hour").tag(60)
+                        }
+                        .tint(DSColor.accent)
+                        .labelsHidden()
+                        .onChange(of: notifManager.reminderMinutesBefore) { _, _ in
+                            notifManager.saveSettings()
+                        }
+                    }
+                }
+                
+                settingsDivider
+                
+                Button {
+                    notifManager.openSystemSettings()
+                } label: {
+                    settingsRow(icon: "gear", iconColor: DSColor.textSecondary) {
+                        HStack {
+                            VStack(alignment: .leading, spacing: DSSpacing.xxxs) {
+                                Text("System Settings")
+                                    .font(DSFont.body())
+                                    .foregroundStyle(.white)
+                                Text(notifManager.isAuthorized ? "Notifications enabled" : "Tap to enable notifications")
+                                    .font(DSFont.captionSmall())
+                                    .foregroundStyle(notifManager.isAuthorized ? DSColor.success : DSColor.error)
+                            }
+                            Spacer()
+                            Image(systemName: "arrow.up.forward")
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundStyle(DSColor.textTertiary)
+                        }
                     }
                 }
             }

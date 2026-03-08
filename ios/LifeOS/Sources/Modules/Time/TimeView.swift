@@ -8,6 +8,7 @@ struct TimeView: View {
     @State private var showAddEvent = false
     @State private var currentTime = Date()
     @State private var googleEvents: [GoogleCalendarService.GoogleCalendarEvent] = []
+    @State private var selectedEventPayload: NotificationPayload?
     
     private var userId: String { authService.currentUser?.uid ?? "" }
     
@@ -96,6 +97,9 @@ struct TimeView: View {
             .navigationTitle("Schedule")
             .sheet(isPresented: $showAddEvent) {
                 EventEntryView()
+            }
+            .sheet(item: $selectedEventPayload) { payload in
+                NotificationDetailView(payload: payload)
             }
             .onReceive(timer) { _ in
                 currentTime = Date()
@@ -250,6 +254,10 @@ struct TimeView: View {
                             )
                     )
                     .offset(x: timelineLeading, y: yOffset)
+                    .onTapGesture {
+                        DSHaptics.light()
+                        selectedEventPayload = NotificationPayload.fromEvent(event)
+                    }
                 }
                 
                 // All-day events banner at the top
@@ -331,6 +339,26 @@ struct TimeView: View {
                         )
                 )
                 .offset(x: timelineLeading, y: yOffset)
+                .onTapGesture {
+                    DSHaptics.light()
+                    selectedEventPayload = NotificationPayload(
+                        isTask: false,
+                        title: block.title,
+                        subtitle: nil,
+                        badge: block.blockType.capitalized,
+                        description: nil,
+                        startTime: block.startTime,
+                        endTime: block.endTime,
+                        priority: nil,
+                        energyLevel: nil,
+                        timeEstimate: block.durationMinutes,
+                        location: nil,
+                        meetingLink: nil,
+                        htmlLink: nil,
+                        taskId: block.linkedTaskId,
+                        eventId: block.id
+                    )
+                }
             }
         }
     }
