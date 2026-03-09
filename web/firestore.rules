@@ -1,16 +1,32 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Zero-trust by default
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+
+      match /tasks/{taskId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+
+      match /timeBlocks/{timeBlockId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+
+      match /notes/{noteId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+
+      match /transactions/{transactionId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+
+      match /projects/{projectId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+    }
+
     match /{document=**} {
       allow read, write: if false;
     }
-    
-    // Example: Users can only read/write their own profiles
-    match /users/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
-    }
-    
-    // Add specific collections rules here...
   }
 }

@@ -1,0 +1,17 @@
+{
+  "name": "LifeOS",
+  "short_name": "LifeOS",
+  "description": "Personal operating system for tasks, time, knowledge, and finance.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#07111f",
+  "theme_color": "#07111f",
+  "icons": [
+    {
+      "src": "/lifeos-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
