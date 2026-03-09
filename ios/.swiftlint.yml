@@ -1,0 +1,21 @@
+disabled_rules: # rule identifiers to exclude from running
+  - trailing_whitespace
+  - line_length
+  - function_body_length
+  - type_body_length
+  - file_length
+
+opt_in_rules: # some rules are only opt-in
+  - empty_count
+  - force_unwrapping
+
+included: # paths to include during linting. `--path` is ignored if present.
+  - LifeOS/Sources
+  - LifeOSWidget/Sources
+
+analyzer_rules: # Rules run by `swiftlint analyze`
+  - explicit_self
+
+force_unwrapping: warning
+unused_import: warning
+line_length: 150

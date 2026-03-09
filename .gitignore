@@ -9,3 +9,4 @@ DerivedData/
 
 # XcodeGen
 LifeOS.xcodeproj/
+build_log*.txt

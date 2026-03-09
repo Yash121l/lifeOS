@@ -2,8 +2,10 @@ import SwiftUI
 
 struct ContentView: View {
     @EnvironmentObject var appDelegate: AppDelegate
+    @StateObject private var diContainer = DIContainer.shared
+    
+    // Quick access to auth/network for routing logic
     @State private var authService = AuthService.shared
-    @State private var firestoreService = FirestoreService.shared
     @State private var network = NetworkMonitor.shared
     @State private var selectedTab = 0
     
@@ -39,12 +41,13 @@ struct ContentView: View {
                     mainTabView
                         .onAppear {
                             if let uid = authService.currentUser?.uid {
-                                firestoreService.startListening(for: uid)
+                                diContainer.database.startListening(for: uid)
                             }
                         }
                         .onDisappear {
-                            firestoreService.stopListening()
+                            diContainer.database.stopListening()
                         }
+                        .environmentObject(diContainer)
                     
                     // Offline / Online banners — positioned above tab bar
                     networkBanner

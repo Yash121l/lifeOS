@@ -1,64 +1,17 @@
 import SwiftUI
 
 struct TimeView: View {
-    @State private var authService = AuthService.shared
-    @State private var store = FirestoreService.shared
-    @State private var calService = GoogleCalendarService.shared
-    @State private var selectedDate = Date()
+    @EnvironmentObject var di: DIContainer
+    @StateObject private var viewModel = TimeViewModel()
+    
     @State private var showAddEvent = false
-    @State private var currentTime = Date()
-    @State private var googleEvents: [GoogleCalendarService.GoogleCalendarEvent] = []
     @State private var selectedEventPayload: NotificationPayload?
-    
-    // MARK: - Unified Event Model
-    struct UnifiedEvent: Identifiable {
-        let id: String
-        let title: String
-        let startTime: Date
-        let endTime: Date
-        let isAllDay: Bool
-        let color: Color
-        let isGoogleEvent: Bool
-        let rawGoogleEvent: GoogleCalendarService.GoogleCalendarEvent?
-        let rawTimeBlock: TimeBlock?
-        
-        // Layout attributes computed during rendering
-        var column: Int = 0
-        var totalColumns: Int = 1
-    }
-    
-    // MARK: - Layout State
-    @State private var layoutEvents: [UnifiedEvent] = []
-    
-    private var userId: String { authService.currentUser?.uid ?? "" }
-    
-    // Timer to update current time line
-    private let timer = Timer.publish(every: 60, on: .main, in: .common).autoconnect()
-    
-    private var datesThisWeek: [Date] {
-        let cal = Calendar.current
-        let today = cal.startOfDay(for: Date())
-        return (-3...3).compactMap { cal.date(byAdding: .day, value: $0, to: today) }
-    }
-    
-    private var blocksForSelectedDate: [TimeBlock] {
-        store.timeBlocks
-            .filter { Calendar.current.isDate($0.startTime, inSameDayAs: selectedDate) }
-            .sorted { $0.startTime < $1.startTime }
-    }
-    
-    /// Google Calendar events filtered for the selected date
-    private var calendarEventsForSelectedDate: [GoogleCalendarService.GoogleCalendarEvent] {
-        googleEvents.filter { event in
-            guard let start = event.startDate else { return false }
-            return Calendar.current.isDate(start, inSameDayAs: selectedDate)
-        }
-    }
     
     private let startHour = 0
     private let endHour = 24
     private let hourHeight: CGFloat = 60
     
+
     var body: some View {
         NavigationStack {
             ZStack(alignment: .bottomTrailing) {
@@ -82,7 +35,7 @@ struct TimeView: View {
                                 unifiedBlocksOverlay
                                 
                                 // Current time indicator
-                                if Calendar.current.isDateInToday(selectedDate) {
+                                if Calendar.current.isDateInToday(viewModel.selectedDate) {
                                     currentTimeIndicator
                                 }
                             }
@@ -121,48 +74,29 @@ struct TimeView: View {
             .sheet(item: $selectedEventPayload) { payload in
                 NotificationDetailView(payload: payload)
             }
-            .onReceive(timer) { _ in
-                currentTime = Date()
-            }
-            .task {
-                await loadGoogleEvents()
-                calculateLayout()
-            }
-            .onChange(of: selectedDate) { _, _ in
+            .onAppear {
+                viewModel.setup(auth: di.auth, database: di.database)
                 Task {
-                    await loadGoogleEvents()
-                    calculateLayout()
+                    await viewModel.loadGoogleEvents()
                 }
-            }
-            .onChange(of: store.timeBlocks) { _, _ in
-                calculateLayout()
             }
         }
     }
     
-    // MARK: - Load Google Calendar Events
-    
-    private func loadGoogleEvents() async {
-        guard calService.isConnected else { return }
-        let cal = Calendar.current
-        let start = cal.date(byAdding: .day, value: -3, to: cal.startOfDay(for: Date()))!
-        let end = cal.date(byAdding: .day, value: 4, to: cal.startOfDay(for: Date()))!
-        let events = await calService.fetchEventsRange(from: start, to: end)
-        await MainActor.run { googleEvents = events }
-    }
+
     
     // MARK: - Date Strip
     
     private var dateStrip: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: DSSpacing.sm) {
-                ForEach(datesThisWeek, id: \.self) { date in
-                    let isSelected = Calendar.current.isDate(date, inSameDayAs: selectedDate)
+                ForEach(viewModel.datesThisWeek, id: \.self) { date in
+                    let isSelected = Calendar.current.isDate(date, inSameDayAs: viewModel.selectedDate)
                     let isToday = Calendar.current.isDateInToday(date)
                     
                     Button {
                         DSHaptics.selection()
-                        withAnimation(DSAnimation.springQuick) { selectedDate = date }
+                        withAnimation(DSAnimation.springQuick) { viewModel.changeDate(date) }
                     } label: {
                         VStack(spacing: DSSpacing.xxs) {
                             Text(date, format: .dateTime.weekday(.abbreviated))
@@ -173,13 +107,8 @@ struct TimeView: View {
                                 .font(DSFont.headline())
                                 .foregroundStyle(isSelected ? .white : DSColor.textPrimary)
                             
-                            // Event indicator dot — shows if there are time blocks OR google events
-                            let hasTimeBlocks = store.timeBlocks.contains { Calendar.current.isDate($0.startTime, inSameDayAs: date) }
-                            let hasCalEvents = googleEvents.contains { event in
-                                guard let start = event.startDate else { return false }
-                                return Calendar.current.isDate(start, inSameDayAs: date)
-                            }
-                            let hasEvents = hasTimeBlocks || hasCalEvents
+                            // Event indicator dot
+                            let hasEvents = viewModel.hasEvents(on: date)
                             
                             Circle()
                                 .fill(hasEvents ? (isSelected ? .white : DSColor.accent) : .clear)
@@ -234,99 +163,7 @@ struct TimeView: View {
         }
     }
     
-    // MARK: - Unified Layout Algorithm
-    
-    private func calculateLayout() {
-        var merged: [UnifiedEvent] = []
-        
-        // 1. Convert TimeBlocks
-        for block in store.timeBlocks where Calendar.current.isDate(block.startTime, inSameDayAs: selectedDate) {
-            merged.append(UnifiedEvent(
-                id: block.id,
-                title: block.title,
-                startTime: block.startTime,
-                endTime: block.endTime,
-                isAllDay: false,
-                color: Color(hex: block.colorHex),
-                isGoogleEvent: false,
-                rawGoogleEvent: nil,
-                rawTimeBlock: block
-            ))
-        }
-        
-        // 2. Convert Google Events (exclude all day for main grid)
-        for event in googleEvents {
-            guard let start = event.startDate, Calendar.current.isDate(start, inSameDayAs: selectedDate), !event.isAllDay, let end = event.endDate else { continue }
-            merged.append(UnifiedEvent(
-                id: event.id,
-                title: event.title,
-                startTime: start,
-                endTime: end,
-                isAllDay: false,
-                color: Color(red: 0.26, green: 0.52, blue: 0.96),
-                isGoogleEvent: true,
-                rawGoogleEvent: event,
-                rawTimeBlock: nil
-            ))
-        }
-        
-        // 3. Sort by start time, then by end time descending (longest first)
-        merged.sort { a, b in
-            if a.startTime != b.startTime { return a.startTime < b.startTime }
-            return a.endTime > b.endTime
-        }
-        
-        // 4. Overlap Grouping Algorithm
-        var result: [UnifiedEvent] = []
-        var currentGroup: [UnifiedEvent] = []
-        var groupEnd: Date = .distantPast
-        
-        for event in merged {
-            // If this event starts after the entire group ends, flush the group and start a new one
-            if event.startTime >= groupEnd && !currentGroup.isEmpty {
-                result.append(contentsOf: layoutGroup(currentGroup))
-                currentGroup = []
-                groupEnd = event.endTime
-            } else {
-                groupEnd = max(groupEnd, event.endTime)
-            }
-            currentGroup.append(event)
-        }
-        
-        // Flush remaining
-        if !currentGroup.isEmpty {
-            result.append(contentsOf: layoutGroup(currentGroup))
-        }
-        
-        self.layoutEvents = result
-    }
-    
-    /// Assigns columns to events that overlap
-    private func layoutGroup(_ group: [UnifiedEvent]) -> [UnifiedEvent] {
-        var columns: [[Date]] = [] // stores end times for each column
-        var assignedEvents: [UnifiedEvent] = []
-        
-        for var event in group {
-            var placed = false
-            for colIdx in 0..<columns.count {
-                if let lastEnd = columns[colIdx].last, event.startTime >= lastEnd {
-                    columns[colIdx].append(event.endTime)
-                    event.column = colIdx
-                    placed = true
-                    break
-                }
-            }
-            
-            if !placed {
-                columns.append([event.endTime])
-                event.column = columns.count - 1
-            }
-            assignedEvents.append(event)
-        }
-        
-        let totalColumns = columns.count
-        return assignedEvents.map { var e = $0; e.totalColumns = totalColumns; return e }
-    }
+
     
     // MARK: - All Day Banner
     private var allDayEventsBanner: some View {
@@ -335,7 +172,7 @@ struct TimeView: View {
             let blockWidth = geo.size.width - timelineLeading - DSSpacing.sm
             
             VStack(spacing: 2) {
-                ForEach(calendarEventsForSelectedDate.filter { $0.isAllDay }) { event in
+                ForEach(viewModel.calendarEventsForSelectedDate.filter { $0.isAllDay }) { event in
                     HStack(spacing: 6) {
                         Image(systemName: "g.circle.fill")
                             .font(.system(size: 9))
@@ -377,7 +214,7 @@ struct TimeView: View {
             let timelineLeading: CGFloat = 56
             let fullWidth = geo.size.width - timelineLeading - DSSpacing.sm
             
-            ForEach(layoutEvents) { event in
+            ForEach(viewModel.layoutEvents) { event in
                 let yOffset = yPosition(for: event.startTime)
                 // Minimal visual height for very short events
                 let height = max(hourHeight * 0.4, yPosition(for: event.endTime) - yOffset)
@@ -461,11 +298,11 @@ struct TimeView: View {
     // MARK: - Current Time Indicator
     
     private var currentTimeIndicator: some View {
-        let yOffset = yPosition(for: currentTime)
+        let yOffset = yPosition(for: viewModel.currentTime)
         
         return HStack(spacing: 0) {
             // Time label — sits in the same 44pt column as hour labels
-            Text(currentTime, format: .dateTime.hour().minute())
+            Text(viewModel.currentTime, format: .dateTime.hour().minute())
                 .font(.system(size: 10, weight: .bold, design: .rounded))
                 .foregroundStyle(DSColor.error)
                 .frame(width: 44, alignment: .trailing)

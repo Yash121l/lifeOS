@@ -2,6 +2,8 @@ import SwiftUI
 import FirebaseCore
 import FirebaseFirestore
 import FirebaseCrashlytics
+import FirebaseAppCheck
+import FirebasePerformance
 import GoogleSignIn
 import UserNotifications
 
@@ -84,7 +86,14 @@ struct LifeOSApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     
     init() {
+        // App Check
+        let providerFactory = LifeOSAppCheckProviderFactory()
+        AppCheck.setAppCheckProviderFactory(providerFactory)
+        
         FirebaseApp.configure()
+        
+        // Performance
+        Performance.sharedInstance().isDataCollectionEnabled = true
         
         // Firestore offline persistence — 100MB local cache
         let settings = Firestore.firestore().settings

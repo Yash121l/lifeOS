@@ -26,6 +26,12 @@ targets:
         product: FirebaseAnalytics
       - package: Firebase
         product: FirebaseCrashlytics
+      - package: Firebase
+        product: FirebaseAppCheck
+      - package: Firebase
+        product: FirebasePerformance
+      - package: Firebase
+        product: FirebaseRemoteConfig
       - package: GoogleSignIn
         product: GoogleSignIn
       - target: LifeOSWidget
@@ -49,6 +55,14 @@ targets:
       properties:
         com.apple.security.application-groups:
           - group.com.yashlunawat.LifeOS
+    postBuildScripts:
+      - name: SwiftLint
+        script: |
+          if which swiftlint >/dev/null; then
+            swiftlint
+          else
+            echo "warning: SwiftLint not installed, download from https://github.com/realm/SwiftLint"
+          fi
 
   LifeOSWidget:
     type: app-extension
