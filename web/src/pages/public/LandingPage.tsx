@@ -1,229 +1,206 @@
-import { motion, useScroll, useTransform } from 'framer-motion';
-import { ChevronRight, Calendar, CheckCircle, PieChart, Book, Apple } from 'lucide-react';
+import { motion, useScroll, useTransform, AnimatePresence } from 'framer-motion';
+import { useRef, useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { useRef } from 'react';
 
 export default function LandingPage() {
-  const { scrollY } = useScroll();
-  const heroRef = useRef(null);
-  const { scrollYProgress } = useScroll({
-    target: heroRef,
-    offset: ['start start', 'end start']
-  });
-
-  // Parallax transforms
-  const yHeroText = useTransform(scrollYProgress, [0, 1], [0, 300]);
-  const opacityHeroText = useTransform(scrollYProgress, [0, 0.8], [1, 0]);
-  const scaleHeroImage = useTransform(scrollYProgress, [0, 1], [1, 1.2]);
+  const containerRef = useRef(null);
+  const { scrollYProgress } = useScroll({ target: containerRef });
   
-  const bgGradientY = useTransform(scrollY, [0, 1000], [0, -200]);
+  // Custom cursor logic for tactile feel
+  const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
+  const [isHovering, setIsHovering] = useState(false);
 
-  const features = [
-    {
-      title: 'Time & Schedule',
-      description: 'A unified calendar that respects your deep work and auto-reschedules conflicts.',
-      icon: <Calendar className="w-8 h-8 text-indigo-400" />,
-      color: 'from-indigo-500/20 to-indigo-500/5',
-      borderColor: 'border-indigo-500/20',
-      delay: 0.1
-    },
-    {
-      title: 'Task Intelligence',
-      description: 'Natural language input with auto-prioritization using the Eisenhower matrix.',
-      icon: <CheckCircle className="w-8 h-8 text-emerald-400" />,
-      color: 'from-emerald-500/20 to-emerald-500/5',
-      borderColor: 'border-emerald-500/20',
-      delay: 0.2
-    },
-    {
-      title: 'Wealth Tracking',
-      description: 'Real-time account aggregation and smart budget guardrails.',
-      icon: <PieChart className="w-8 h-8 text-amber-400" />,
-      color: 'from-amber-500/20 to-amber-500/5',
-      borderColor: 'border-amber-500/20',
-      delay: 0.3
-    },
-    {
-      title: 'Knowledge Base',
-      description: 'Quick capture notes with bi-directional linking to tasks and events.',
-      icon: <Book className="w-8 h-8 text-sky-400" />,
-      color: 'from-sky-500/20 to-sky-500/5',
-      borderColor: 'border-sky-500/20',
-      delay: 0.4
-    }
-  ];
+  useEffect(() => {
+    const updateMousePosition = (e: MouseEvent) => {
+      setMousePosition({ x: e.clientX, y: e.clientY });
+    };
+    window.addEventListener('mousemove', updateMousePosition);
+    return () => window.removeEventListener('mousemove', updateMousePosition);
+  }, []);
 
   return (
-    <div className="min-h-screen bg-neutral-950 text-neutral-50 font-sans overflow-x-hidden selection:bg-indigo-500/30">
-      
-      {/* Dynamic Animated Background Glow */}
-      <motion.div 
-        style={{ y: bgGradientY }}
-        className="fixed top-[-20%] left-[-10%] w-[120%] h-[120%] z-0 pointer-events-none"
-      >
-        <div className="absolute top-1/4 left-1/4 w-[600px] h-[600px] bg-indigo-600/20 rounded-full blur-[150px] mix-blend-screen animate-pulse" />
-        <div className="absolute top-1/3 right-1/4 w-[500px] h-[500px] bg-purple-600/20 rounded-full blur-[120px] mix-blend-screen" />
-        <div className="absolute bottom-1/4 left-1/3 w-[700px] h-[700px] bg-emerald-600/10 rounded-full blur-[150px] mix-blend-screen" />
-      </motion.div>
+    <div 
+      ref={containerRef} 
+      className="noise-bg bg-background text-foreground min-h-screen selection:bg-white selection:text-black overflow-x-hidden"
+    >
+      {/* Custom Minimal Cursor */}
+      <motion.div
+        className="fixed top-0 left-0 w-4 h-4 rounded-full bg-white mix-blend-difference pointer-events-none z-[100] hidden md:block"
+        animate={{
+          x: mousePosition.x - 8,
+          y: mousePosition.y - 8,
+          scale: isHovering ? 3 : 1,
+        }}
+        transition={{ type: 'spring', stiffness: 400, damping: 28, mass: 0.1 }}
+      />
 
-      {/* Navbar */}
-      <nav className="fixed top-0 inset-x-0 z-50 backdrop-blur-2xl bg-neutral-950/40 border-b border-white/5">
-        <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-3 group cursor-pointer">
-            <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-indigo-500 to-purple-500 flex items-center justify-center shadow-[0_0_20px_rgba(99,102,241,0.3)] group-hover:shadow-[0_0_30px_rgba(99,102,241,0.5)] transition-shadow duration-500">
-              <span className="font-bold text-white text-lg leading-none tracking-tighter">L</span>
-            </div>
-            <span className="font-semibold text-lg tracking-tight">LifeOS</span>
-          </div>
-          <div className="flex items-center gap-6">
-            <Link to="/auth" className="text-sm font-medium text-neutral-400 hover:text-white transition-colors">Log In</Link>
-            <Link to="/auth" className="text-sm font-medium bg-white text-black px-4 py-2 rounded-full hover:scale-105 hover:bg-neutral-200 transition-all duration-300 shadow-[0_0_20px_rgba(255,255,255,0.1)]">
-              Get Started
-            </Link>
+      {/* Brutalist Navbar */}
+      <nav className="fixed top-0 inset-x-0 z-50 mix-blend-difference p-6 flex justify-between items-start pointer-events-none">
+        <div className="font-display font-bold text-xl tracking-tighter uppercase pointer-events-auto text-white">
+          LifeOS <span className="opacity-40">®</span>
+        </div>
+        <div className="flex flex-col items-end gap-1 pointer-events-auto">
+          <Link 
+            to="/auth" 
+            className="text-xs uppercase tracking-widest font-medium hover:opacity-50 transition-opacity text-white"
+            onMouseEnter={() => setIsHovering(true)}
+            onMouseLeave={() => setIsHovering(false)}
+          >
+            Access Terminal
+          </Link>
+          <div className="text-[10px] uppercase tracking-widest text-white/40">
+            System v1.0
           </div>
         </div>
       </nav>
 
-      {/* Hero Section with Parallax */}
-      <section ref={heroRef} className="relative min-h-[100vh] flex items-center justify-center px-6 pt-20 z-10">
-        <motion.div 
-          style={{ y: yHeroText, opacity: opacityHeroText }}
-          className="max-w-5xl mx-auto text-center"
-        >
-          <motion.div
-            initial={{ opacity: 0, scale: 0.9, y: 20 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
-          >
-            <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/5 border border-white/10 text-sm font-medium text-indigo-300 mb-8 backdrop-blur-md shadow-2xl">
-              <span className="w-2 h-2 rounded-full bg-indigo-400 animate-[pulse_2s_ease-in-out_infinite]" />
-              LifeOS v1.0 is now available
-            </span>
-          </motion.div>
-          
-          <motion.h1 
-            className="text-6xl md:text-8xl lg:text-9xl font-bold tracking-tighter leading-[1.05] mb-8"
-            initial={{ opacity: 0, y: 40 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
-          >
-            Stop managing apps.<br />
-            <span className="bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
-              Start managing your life.
-            </span>
-          </motion.h1>
-          
-          <motion.p 
-            className="text-xl lg:text-2xl text-neutral-400 mb-12 max-w-3xl mx-auto font-light leading-relaxed"
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, delay: 0.2, ease: [0.16, 1, 0.3, 1] }}
-          >
-            When your calendar knows your budget, your tasks know your location, and your notes are linked to your schedule. The unified system for high performers.
-          </motion.p>
+      {/* Asymmetric Typography Hero */}
+      <section className="relative min-h-[100vh] flex flex-col justify-end p-6 md:p-12 lg:p-24 pb-24 md:pb-32 z-10">
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-8 items-end">
+          <div className="md:col-span-9 lg:col-span-10">
+            <motion.h1 
+              initial={{ opacity: 0, y: 50 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 1.2, ease: [0.16, 1, 0.3, 1] }}
+              className="text-[12vw] md:text-[8vw] lg:text-[7vw] leading-[0.85] font-display font-medium tracking-tighter uppercase"
+            >
+              Your time, wealth, <br />
+              <span className="text-white/20">and mind.</span> <br />
+              Finally in sync.
+            </motion.h1>
+          </div>
           
           <motion.div 
-            className="flex flex-col sm:flex-row items-center justify-center gap-6"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, delay: 0.3, ease: [0.16, 1, 0.3, 1] }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 1, delay: 0.5 }}
+            className="md:col-span-3 lg:col-span-2 flex flex-col gap-8 md:pb-4"
           >
-            <button className="flex items-center justify-center gap-3 bg-white text-black px-8 py-4 rounded-full font-semibold text-lg hover:scale-105 transition-all duration-300 shadow-[0_0_40px_rgba(255,255,255,0.2)] w-full sm:w-auto">
-              <Apple className="w-6 h-6 fill-black" />
-              Download for iOS
-            </button>
-            <Link to="/auth" className="group flex items-center justify-center gap-2 px-8 py-4 rounded-full font-semibold text-lg text-white bg-white/5 border border-white/10 hover:bg-white/10 transition-all duration-300 w-full sm:w-auto">
-              Open Web App
-              <ChevronRight className="w-5 h-5 text-neutral-400 group-hover:text-white group-hover:translate-x-1 transition-all" />
+            <p className="text-xs uppercase tracking-widest leading-relaxed text-foreground/60 border-l border-white/10 pl-4">
+              A single, opinionated system designed for high performers who refuse context switching.
+            </p>
+            <Link 
+              to="/auth" 
+              className="group relative inline-flex items-center justify-center bg-white text-black h-14 px-8 rounded-none overflow-hidden"
+              onMouseEnter={() => setIsHovering(true)}
+              onMouseLeave={() => setIsHovering(false)}
+            >
+              <div className="absolute inset-0 bg-neutral-200 transform translate-y-full group-hover:translate-y-0 transition-transform duration-500 ease-elite" />
+              <span className="relative text-xs font-bold uppercase tracking-widest mix-blend-difference text-white">Initialize Workspace</span>
             </Link>
           </motion.div>
-        </motion.div>
-
-        {/* Abstract Floating UI Elements for Parallax */}
-        <motion.div 
-          style={{ y: useTransform(scrollYProgress, [0, 1], [0, -400]), scale: scaleHeroImage }}
-          className="absolute right-[-5%] top-[20%] w-64 h-64 bg-indigo-500/10 rounded-3xl border border-white/5 backdrop-blur-3xl rotate-12 pointer-events-none hidden lg:block"
-        />
-        <motion.div 
-          style={{ y: useTransform(scrollYProgress, [0, 1], [0, -200]) }}
-          className="absolute left-[-2%] bottom-[20%] w-48 h-48 bg-purple-500/10 rounded-full border border-white/5 backdrop-blur-3xl pointer-events-none hidden lg:block"
-        />
+        </div>
       </section>
 
-      {/* Bento Grid Features Section with Scroll Reveals */}
-      <section className="py-32 px-6 relative z-10">
-        <div className="max-w-7xl mx-auto">
-          <motion.div 
-            className="text-center mb-24"
-            initial={{ opacity: 0, y: 40 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: "-100px" }}
-            transition={{ duration: 0.8, ease: "easeOut" }}
-          >
-            <h2 className="text-4xl lg:text-6xl font-bold tracking-tighter mb-6">Everything in one place.</h2>
-            <p className="text-neutral-400 text-xl max-w-2xl mx-auto font-light">Four powerful modules designed to work seamlessly together, eliminating context switching forever.</p>
-          </motion.div>
+      {/* Sticky Editorial Narrative Section */}
+      <section className="relative w-full border-t border-white/10">
+        <div className="max-w-[100vw] mx-auto flex flex-col md:flex-row">
           
-          <div className="grid md:grid-cols-2 gap-8 lg:gap-10">
-            {features.map((feature, index) => (
-              <motion.div 
-                key={feature.title}
-                initial={{ opacity: 0, y: 60, scale: 0.95 }}
-                whileInView={{ opacity: 1, y: 0, scale: 1 }}
-                viewport={{ once: true, margin: "-50px" }}
-                transition={{ duration: 0.8, delay: feature.delay, ease: [0.16, 1, 0.3, 1] }}
-                whileHover={{ y: -10, scale: 1.02 }}
-                className={`group p-10 rounded-[2.5rem] bg-gradient-to-br ${feature.color} border ${feature.borderColor} backdrop-blur-md shadow-2xl relative overflow-hidden`}
-              >
-                <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-                <div className="relative z-10">
-                  <div className="w-16 h-16 rounded-2xl bg-black/50 flex items-center justify-center mb-8 border border-white/5 shadow-inner group-hover:scale-110 transition-transform duration-500">
-                    {feature.icon}
+          {/* Left Sticky Copy */}
+          <div className="w-full md:w-1/2 md:sticky md:top-0 h-auto md:h-screen flex flex-col justify-center p-6 md:p-12 lg:p-24 border-r border-white/10 z-20 bg-background">
+            <h2 className="text-4xl md:text-5xl lg:text-7xl font-display tracking-tighter uppercase leading-[0.9] mb-8">
+              One Interface. <br/>
+              Zero Friction.
+            </h2>
+            <p className="text-lg md:text-xl text-foreground/60 font-light max-w-md leading-relaxed">
+              We stripped away the noise. Forget managing six different subscriptions for tasks, calendars, notes, and budgets. This is the unified terminal for your life.
+            </p>
+          </div>
+
+          {/* Right Scrolling Visuals */}
+          <div className="w-full md:w-1/2 flex flex-col border-t md:border-t-0 border-white/10">
+            
+            {/* Feature 1 */}
+            <div className="h-screen flex items-center justify-center p-6 md:p-12 border-b border-white/10 relative overflow-hidden group">
+              <div className="absolute inset-0 bg-white/[0.02] transform origin-bottom scale-y-0 group-hover:scale-y-100 transition-transform duration-700 ease-elite" />
+              <div className="w-full max-w-md space-y-8 relative z-10">
+                <div className="text-xs uppercase tracking-widest text-foreground/40 font-bold">01 // Chronos</div>
+                <h3 className="text-3xl font-display uppercase tracking-tighter">Time Topology</h3>
+                <p className="text-sm text-foreground/60 leading-relaxed">
+                  Your calendar shouldn't just display time, it should defend it. Automated deep work scheduling and conflict resolution built in.
+                </p>
+                <div className="aspect-video w-full bg-white/5 border border-white/10 flex items-center justify-center editorial-shadow">
+                  <div className="w-1/2 h-1/2 border border-white/20 rounded-full flex items-center justify-center">
+                    <div className="w-1 h-1/2 bg-white origin-bottom animate-spin" style={{ animationDuration: '4s', animationTimingFunction: 'linear' }} />
                   </div>
-                  <h3 className="text-3xl font-semibold mb-4 tracking-tight">{feature.title}</h3>
-                  <p className="text-neutral-400 leading-relaxed text-lg font-light">
-                    {feature.description}
-                  </p>
                 </div>
-              </motion.div>
-            ))}
+              </div>
+            </div>
+
+            {/* Feature 2 */}
+            <div className="h-screen flex items-center justify-center p-6 md:p-12 border-b border-white/10 relative overflow-hidden group">
+              <div className="absolute inset-0 bg-white/[0.02] transform origin-bottom scale-y-0 group-hover:scale-y-100 transition-transform duration-700 ease-elite" />
+              <div className="w-full max-w-md space-y-8 relative z-10">
+                <div className="text-xs uppercase tracking-widest text-foreground/40 font-bold">02 // Capital</div>
+                <h3 className="text-3xl font-display uppercase tracking-tighter">Wealth Ledger</h3>
+                <p className="text-sm text-foreground/60 leading-relaxed">
+                  Real-time liquidity tracking. No bloated dashboards, just stark, actionable financial truths.
+                </p>
+                <div className="aspect-video w-full bg-white/5 border border-white/10 flex items-end p-4 gap-2 editorial-shadow">
+                  {[40, 70, 45, 90, 60].map((h, i) => (
+                    <div key={i} className="flex-1 bg-white/20 origin-bottom hover:bg-white transition-colors duration-300" style={{ height: `${h}%` }} />
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Feature 3 */}
+            <div className="h-screen flex items-center justify-center p-6 md:p-12 relative overflow-hidden group">
+              <div className="absolute inset-0 bg-white/[0.02] transform origin-bottom scale-y-0 group-hover:scale-y-100 transition-transform duration-700 ease-elite" />
+              <div className="w-full max-w-md space-y-8 relative z-10">
+                <div className="text-xs uppercase tracking-widest text-foreground/40 font-bold">03 // Cortex</div>
+                <h3 className="text-3xl font-display uppercase tracking-tighter">Knowledge Graph</h3>
+                <p className="text-sm text-foreground/60 leading-relaxed">
+                  Notes seamlessly linked to events and tasks. Capture thoughts at the speed of light.
+                </p>
+                <div className="aspect-video w-full bg-white/5 border border-white/10 p-6 flex flex-col gap-4 editorial-shadow">
+                  <div className="w-3/4 h-4 bg-white/20" />
+                  <div className="w-full h-2 bg-white/10" />
+                  <div className="w-5/6 h-2 bg-white/10" />
+                  <div className="w-4/6 h-2 bg-white/10" />
+                </div>
+              </div>
+            </div>
+
           </div>
         </div>
       </section>
 
-      {/* Full-width Call to Action with Scroll Scale */}
-      <section className="py-32 px-6 relative z-10 overflow-hidden">
-        <motion.div 
-          initial={{ opacity: 0, scale: 0.9 }}
-          whileInView={{ opacity: 1, scale: 1 }}
-          viewport={{ once: true, margin: "-100px" }}
-          transition={{ duration: 1, ease: "easeOut" }}
-          className="max-w-6xl mx-auto rounded-[3rem] bg-gradient-to-br from-indigo-900/40 to-purple-900/40 border border-white/10 p-12 md:p-24 text-center relative backdrop-blur-xl shadow-2xl"
+      {/* Massive Call to Action */}
+      <section className="min-h-screen flex flex-col items-center justify-center p-6 md:p-12 text-center border-t border-white/10 relative overflow-hidden">
+        <h2 className="text-[10vw] font-display font-bold tracking-tighter uppercase leading-none mb-12 mix-blend-difference z-10 text-white">
+          Ready.
+        </h2>
+        <Link 
+          to="/auth" 
+          className="group relative inline-flex items-center justify-center bg-white text-black h-16 px-12 rounded-none overflow-hidden z-10"
+          onMouseEnter={() => setIsHovering(true)}
+          onMouseLeave={() => setIsHovering(false)}
         >
-          <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10 mix-blend-overlay" />
-          <h2 className="text-4xl md:text-6xl font-bold tracking-tighter mb-8 relative z-10">Ready to take control?</h2>
-          <p className="text-xl text-indigo-200/70 mb-10 max-w-2xl mx-auto font-light relative z-10">Join thousands of high performers who have unified their workflow with LifeOS.</p>
-          <button className="relative z-10 bg-white text-black px-10 py-5 rounded-full font-semibold text-lg hover:scale-105 transition-all duration-300 shadow-[0_0_40px_rgba(255,255,255,0.3)]">
-            Get LifeOS for iOS
-          </button>
-        </motion.div>
+          <div className="absolute inset-0 bg-neutral-300 transform translate-y-full group-hover:translate-y-0 transition-transform duration-500 ease-elite" />
+          <span className="relative text-sm font-bold uppercase tracking-widest mix-blend-difference text-white">Enter the system</span>
+        </Link>
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[80vw] h-[80vw] rounded-full border border-white/5 opacity-50 pointer-events-none" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[60vw] h-[60vw] rounded-full border border-white/5 opacity-50 pointer-events-none" />
       </section>
 
-      {/* Footer */}
-      <footer className="border-t border-white/5 py-12 px-6 relative z-10 bg-black/50 backdrop-blur-lg">
-        <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-6">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-indigo-500 to-purple-500 flex items-center justify-center">
-              <span className="font-bold text-white text-sm">L</span>
-            </div>
-            <span className="font-medium text-neutral-300 text-lg">LifeOS</span>
-          </div>
-          <div className="flex gap-8 text-sm text-neutral-400 font-medium">
-            <Link to="/privacy" className="hover:text-white transition-colors">Privacy Policy</Link>
-            <Link to="/terms" className="hover:text-white transition-colors">Terms of Service</Link>
-            <Link to="/support" className="hover:text-white transition-colors">Support</Link>
-          </div>
-          <p className="text-sm text-neutral-600 font-medium">© 2026 LifeOS Inc. All rights reserved.</p>
+      {/* Stark Footer */}
+      <footer className="border-t border-white/10 p-6 md:p-12 grid grid-cols-1 md:grid-cols-4 gap-12 text-xs uppercase tracking-widest font-medium">
+        <div className="md:col-span-2">
+          <div className="font-display font-bold text-xl tracking-tighter mb-4">LifeOS</div>
+          <p className="text-foreground/40 max-w-xs normal-case tracking-normal">
+            Designed for those who require absolute control over their environment.
+          </p>
+        </div>
+        <div className="flex flex-col gap-4">
+          <span className="text-foreground/40 mb-2">Legal</span>
+          <Link to="/privacy" className="hover:text-white transition-colors">Privacy Policy</Link>
+          <Link to="/terms" className="hover:text-white transition-colors">Terms of Service</Link>
+        </div>
+        <div className="flex flex-col gap-4">
+          <span className="text-foreground/40 mb-2">Connect</span>
+          <Link to="/support" className="hover:text-white transition-colors">Support Terminal</Link>
+          <a href="#" className="hover:text-white transition-colors">Twitter // X</a>
         </div>
       </footer>
     </div>
