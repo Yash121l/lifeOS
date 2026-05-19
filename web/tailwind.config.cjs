@@ -45,6 +45,12 @@ module.exports = {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
+        technical: {
+          amber: "#FF7B00",
+          dim: "rgba(255,255,255,0.03)",
+          machined: "rgba(255,255,255,0.08)",
+          glass: "rgba(0,0,0,0.6)"
+        }
       },
       borderRadius: {
         lg: "var(--radius)",
@@ -53,6 +59,7 @@ module.exports = {
       },
       transitionTimingFunction: {
         'elite': 'cubic-bezier(0.16, 1, 0.3, 1)',
+        'machined': 'cubic-bezier(0.2, 0, 0, 1)',
       },
       keyframes: {
         grain: {
@@ -66,10 +73,15 @@ module.exports = {
           '70%': { transform: 'translate(0%, 15%)' },
           '80%': { transform: 'translate(3%, 35%)' },
           '90%': { transform: 'translate(-10%, 10%)' },
+        },
+        scanline: {
+          '0%': { transform: 'translateY(-100%)' },
+          '100%': { transform: 'translateY(100vh)' }
         }
       },
       animation: {
         'grain': 'grain 8s steps(10) infinite',
+        'scanline': 'scanline 8s linear infinite',
       }
     },
   },
