@@ -14,12 +14,11 @@ protocol AuthServiceProtocol: ObservableObject {
 protocol DatabaseServiceProtocol: ObservableObject {
     var timeBlocks: [TimeBlock] { get }
     var tasks: [TaskItem] { get }
-    var financialTransactions: [TransactionItem] { get }
+    var transactions: [TransactionItem] { get }
     var notes: [NoteItem] { get }
     
     func startListening(for userId: String)
     func stopListening()
-    // Other functions would go here
 }
 
 /// The main Dependency Injection Container that holds all services.

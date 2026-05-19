@@ -6,48 +6,41 @@ struct TimeView: View {
     
     @State private var showAddEvent = false
     @State private var selectedEventPayload: NotificationPayload?
+    @State private var searchText = ""         // for event search
+    @State private var showSearch = false
     
-    private let startHour = 0
-    private let endHour = 24
-    private let hourHeight: CGFloat = 60
+    private let startHour = 8
+    private let endHour = 20
+    private let hourHeight: CGFloat = 64
     
 
     var body: some View {
         NavigationStack {
             ZStack(alignment: .bottomTrailing) {
-                VStack(spacing: 0) {
-                    // Date strip
-                    dateStrip
-                    
-                    Divider().overlay(DSColor.cardBorder)
-                    
-                    // Timeline
-                    ScrollViewReader { proxy in
-                        ScrollView(showsIndicators: false) {
-                            ZStack(alignment: .topLeading) {
-                                // Hour grid
-                                hourGrid
-                                
-                                // All-day Google Events at top
-                                allDayEventsBanner
-                                
-                                // Unified overlapping blocks
-                                unifiedBlocksOverlay
-                                
-                                // Current time indicator
-                                if Calendar.current.isDateInToday(viewModel.selectedDate) {
-                                    currentTimeIndicator
-                                }
+                ScrollView(showsIndicators: false) {
+                    VStack(spacing: 0) {
+                        headerSection
+                        
+                        searchBarSection
+                        
+                        dateStrip
+                            .padding(.bottom, 20)
+                        
+                        // Timeline
+                        ZStack(alignment: .topLeading) {
+                            hourGrid
+                            
+                            allDayEventsBanner
+                            
+                            unifiedBlocksOverlay
+                            
+                            if Calendar.current.isDateInToday(viewModel.selectedDate) {
+                                currentTimeIndicator
                             }
-                            .frame(height: CGFloat(endHour - startHour) * hourHeight)
-                            .padding(.horizontal, DSSpacing.md)
                         }
-                        .onAppear {
-                            // Scroll to current hour
-                            let hour = Calendar.current.component(.hour, from: Date())
-                            let targetHour = max(0, hour - 2)
-                            proxy.scrollTo(targetHour, anchor: .top)
-                        }
+                        .padding(.horizontal, DSSpacing.md)
+                        
+                        Spacer(minLength: 120)
                     }
                 }
                 .background(DSColor.background)
@@ -58,18 +51,21 @@ struct TimeView: View {
                     showAddEvent = true
                 } label: {
                     Image(systemName: "plus")
-                        .font(.system(size: 22, weight: .bold))
+                        .font(.system(size: 26, weight: .bold))
                         .foregroundStyle(.white)
                         .frame(width: 56, height: 56)
-                        .background(Circle().fill(DSGradient.accent))
-                        .shadow(color: DSColor.accent.opacity(0.4), radius: 12, y: 4)
+                        .background(Circle().fill(DSColor.accent))
+                        .shadow(color: DSColor.accent.opacity(0.35), radius: 12, y: 8)
                 }
-                .padding(.trailing, DSSpacing.lg)
-                .padding(.bottom, DSSpacing.lg)
+                .padding(.trailing, 18)
+                .padding(.bottom, 30)
             }
-            .navigationTitle("Schedule")
+            .toolbar(.hidden)
             .sheet(isPresented: $showAddEvent) {
                 EventEntryView()
+                    .presentationDetents([.large])
+                    .presentationDragIndicator(.visible)
+                    .presentationBackground(DSColor.background)
             }
             .sheet(item: $selectedEventPayload) { payload in
                 NotificationDetailView(payload: payload)
@@ -83,58 +79,124 @@ struct TimeView: View {
         }
     }
     
-
+    // MARK: - Header
     
-    // MARK: - Date Strip
+    private var headerSection: some View {
+        HStack(alignment: .top) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(viewModel.selectedDate.formatted(.dateTime.month(.wide).year()))
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(DSColor.textSecondary)
+                
+                Text(Calendar.current.isDateInToday(viewModel.selectedDate) ? "Today" : viewModel.selectedDate.formatted(.dateTime.weekday(.wide)))
+                    .font(.system(size: 34, weight: .bold, design: .rounded))
+                    .foregroundStyle(.white)
+                    .kerning(-1.2)
+            }
+            
+            Spacer()
+            
+            HStack(spacing: 8) {
+                Button {
+                    DSHaptics.selection()
+                    withAnimation(.spring(response: 0.3)) {
+                        showSearch.toggle()
+                        if !showSearch { searchText = "" }
+                    }
+                } label: {
+                    Image(systemName: showSearch ? "xmark" : "magnifyingglass")
+                        .font(.system(size: 18))
+                        .foregroundStyle(.white)
+                        .frame(width: 40, height: 40)
+                        .background(Circle().fill(showSearch ? DSColor.accent : DSColor.surface))
+                        .animation(.spring(response: 0.2), value: showSearch)
+                }
+                
+                Button {
+                    DSHaptics.selection()
+                    viewModel.selectedDate = Date()
+                } label: {
+                    Image(systemName: "calendar")
+                        .font(.system(size: 18))
+                        .foregroundStyle(Calendar.current.isDateInToday(viewModel.selectedDate) ? DSColor.accent : .white)
+                        .frame(width: 40, height: 40)
+                        .background(Circle().fill(DSColor.surface))
+                }
+            }
+            .padding(.top, 8)
+        }
+        .padding(.horizontal, 22)
+        .padding(.top, 60)
+        .padding(.bottom, showSearch ? 4 : 8)
+    }
     
-    private var dateStrip: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: DSSpacing.sm) {
-                ForEach(viewModel.datesThisWeek, id: \.self) { date in
-                    let isSelected = Calendar.current.isDate(date, inSameDayAs: viewModel.selectedDate)
-                    let isToday = Calendar.current.isDateInToday(date)
-                    
-                    Button {
-                        DSHaptics.selection()
-                        withAnimation(DSAnimation.springQuick) { viewModel.changeDate(date) }
-                    } label: {
-                        VStack(spacing: DSSpacing.xxs) {
-                            Text(date, format: .dateTime.weekday(.abbreviated))
-                                .font(DSFont.captionSmall())
-                                .foregroundStyle(isSelected ? .white : DSColor.textTertiary)
-                            
-                            Text(date, format: .dateTime.day())
-                                .font(DSFont.headline())
-                                .foregroundStyle(isSelected ? .white : DSColor.textPrimary)
-                            
-                            // Event indicator dot
-                            let hasEvents = viewModel.hasEvents(on: date)
-                            
-                            Circle()
-                                .fill(hasEvents ? (isSelected ? .white : DSColor.accent) : .clear)
-                                .frame(width: 4, height: 4)
-                        }
-                        .frame(width: 44, height: 72)
-                        .background {
-                            if isSelected {
-                                RoundedRectangle(cornerRadius: 22)
-                                    .fill(LinearGradient(colors: [DSColor.accent, DSColor.accent.opacity(0.8)], startPoint: .topLeading, endPoint: .bottomTrailing))
-                                    .shadow(color: DSColor.accent.opacity(0.4), radius: 8, x: 0, y: 4)
-                            } else if isToday {
-                                RoundedRectangle(cornerRadius: 22)
-                                    .fill(DSColor.surfaceElevated)
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: 22)
-                                            .stroke(DSColor.accent.opacity(0.3), lineWidth: 1)
-                                    )
-                            }
-                        }
+    // MARK: - Search Bar (conditionally visible)
+    
+    @ViewBuilder
+    private var searchBarSection: some View {
+        if showSearch {
+            HStack(spacing: 10) {
+                Image(systemName: "magnifyingglass")
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundStyle(DSColor.textSecondary)
+                TextField("Search events...", text: $searchText)
+                    .font(.system(size: 16))
+                    .foregroundStyle(.white)
+                    .autocorrectionDisabled()
+                if !searchText.isEmpty {
+                    Button { searchText = "" } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundStyle(DSColor.textTertiary)
                     }
                 }
             }
-            .padding(.horizontal, DSSpacing.md)
-            .padding(.vertical, DSSpacing.sm)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 10)
+            .background(DSColor.surface)
+            .clipShape(RoundedRectangle(cornerRadius: 12))
+            .overlay(RoundedRectangle(cornerRadius: 12).stroke(DSColor.hairline, lineWidth: 0.5))
+            .padding(.horizontal, 22)
+            .padding(.bottom, 10)
+            .transition(.move(edge: .top).combined(with: .opacity))
         }
+    }
+
+    // MARK: - Date Strip
+    
+    private var dateStrip: some View {
+        HStack(spacing: 4) {
+            ForEach(viewModel.datesThisWeek, id: \.self) { date in
+                let isSelected = Calendar.current.isDate(date, inSameDayAs: viewModel.selectedDate)
+                let isToday = Calendar.current.isDateInToday(date)
+                let hasEvents = viewModel.hasEvents(on: date)
+                
+                Button {
+                    DSHaptics.selection()
+                    withAnimation(DSAnimation.springQuick) { viewModel.changeDate(date) }
+                } label: {
+                    VStack(spacing: 4) {
+                        Text(date, format: .dateTime.weekday(.abbreviated))
+                            .font(.system(size: 11.5, weight: .medium))
+                            .foregroundStyle(isSelected ? .white.opacity(0.85) : DSColor.textSecondary)
+                            .textCase(.uppercase)
+                        
+                        Text(date, format: .dateTime.day())
+                            .font(.system(size: 17, weight: .bold))
+                            .foregroundStyle(isSelected ? .white : (isToday ? DSColor.accent : .white))
+                        
+                        Circle()
+                            .fill(hasEvents ? (isSelected ? .white : DSColor.accent) : .clear)
+                            .frame(width: 4, height: 4)
+                            .padding(.top, 1)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 10)
+                    .background(isSelected ? DSColor.accent : Color.clear)
+                    .clipShape(RoundedRectangle(cornerRadius: 14))
+                }
+            }
+        }
+        .padding(.horizontal, 14)
     }
     
     // MARK: - Hour Grid
@@ -142,25 +204,41 @@ struct TimeView: View {
     private var hourGrid: some View {
         VStack(spacing: 0) {
             ForEach(startHour..<endHour, id: \.self) { hour in
-                HStack(alignment: .top, spacing: DSSpacing.sm) {
+                HStack(alignment: .top, spacing: 0) {
                     // Time label
                     Text(formatHour(hour))
-                        .font(.system(size: 10, weight: .medium, design: .monospaced))
+                        .font(.system(size: 11, weight: .semibold, design: .monospaced))
                         .foregroundStyle(DSColor.textTertiary)
-                        .frame(width: 44, alignment: .trailing)
+                        .kerning(0.4)
+                        .frame(width: 44, alignment: .leading)
+                        .offset(y: -7)
                     
                     // Horizontal line
                     VStack {
                         Rectangle()
-                            .fill(DSColor.cardBorder)
+                            .fill(DSColor.hairline)
                             .frame(height: 0.5)
                         Spacer()
                     }
+                    .padding(.leading, 8)
                 }
                 .frame(height: hourHeight)
                 .id(hour)
             }
         }
+    }
+    
+    private func formatHour(_ hour: Int) -> String {
+        let h = hour % 12 == 0 ? 12 : hour % 12
+        let ampm = hour < 12 ? "AM" : "PM"
+        return "\(h) \(ampm)"
+    }
+    
+    private func yPosition(for date: Date) -> CGFloat {
+        let cal = Calendar.current
+        let hour = CGFloat(cal.component(.hour, from: date))
+        let minute = CGFloat(cal.component(.minute, from: date))
+        return (hour - CGFloat(startHour)) * hourHeight + (minute / 60.0) * hourHeight
     }
     
 
@@ -212,84 +290,48 @@ struct TimeView: View {
     private var unifiedBlocksOverlay: some View {
         GeometryReader { geo in
             let timelineLeading: CGFloat = 56
-            let fullWidth = geo.size.width - timelineLeading - DSSpacing.sm
+            let fullWidth = geo.size.width - timelineLeading - 4
             
             ForEach(viewModel.layoutEvents) { event in
                 let yOffset = yPosition(for: event.startTime)
-                // Minimal visual height for very short events
-                let height = max(hourHeight * 0.4, yPosition(for: event.endTime) - yOffset)
+                let height = yPosition(for: event.endTime) - yOffset
                 
-                // Calculate column dimensions
                 let columnWidth = fullWidth / CGFloat(event.totalColumns)
                 let xOffset = timelineLeading + (CGFloat(event.column) * columnWidth)
                 
-                HStack(spacing: 0) {
-                    // Left color bar
-                    RoundedRectangle(cornerRadius: 3)
-                        .fill(event.color)
-                        .frame(width: 4)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(event.title)
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .kerning(-0.2)
+                        .lineLimit(1)
                     
-                    VStack(alignment: .leading, spacing: DSSpacing.xxxs) {
-                        HStack(spacing: 4) {
-                            if event.isGoogleEvent {
-                                Image(systemName: "g.circle.fill")
-                                    .font(.system(size: 9))
-                                    .foregroundStyle(event.color)
-                            }
-                            Text(event.title)
-                                .font(DSFont.caption())
-                                .fontWeight(.semibold)
-                                .foregroundStyle(.white)
-                                .lineLimit(1)
-                        }
-                        
-                        // Only show times if height is enough
-                        if height > 36 {
-                            Text("\(event.startTime, format: .dateTime.hour().minute()) – \(event.endTime, format: .dateTime.hour().minute())")
-                                .font(.system(size: 10, weight: .medium, design: .rounded))
-                                .foregroundStyle(event.color.opacity(0.9))
-                        }
-                    }
-                    .padding(.leading, DSSpacing.xs)
-                    .padding(.vertical, DSSpacing.xxs)
-                    
-                    Spacer()
+                    Text("\(event.startTime, format: .dateTime.hour().minute()) – \(event.endTime, format: .dateTime.hour().minute())")
+                        .font(.system(size: 12, weight: .medium, design: .rounded))
+                        .foregroundStyle(DSColor.textSecondary)
                 }
-                .frame(width: columnWidth - 2, height: height) // slight separation between cols
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .frame(width: columnWidth - 4, height: height - 4, alignment: .topLeading)
                 .background(
-                    RoundedRectangle(cornerRadius: DSRadius.sm)
-                        .fill(Material.ultraThin)
-                        .background(event.color.opacity(0.2))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: DSRadius.sm)
-                                .stroke(event.color.opacity(0.4), lineWidth: 1)
-                        )
+                    ZStack(alignment: .leading) {
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(event.color.opacity(0.15))
+                        
+                        Rectangle()
+                            .fill(event.color)
+                            .frame(width: 3)
+                            .clipShape(UnevenRoundedRectangle(topLeadingRadius: 12, bottomLeadingRadius: 12))
+                    }
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(event.color.opacity(0.25), lineWidth: 0.5)
                 )
                 .offset(x: xOffset, y: yOffset)
                 .onTapGesture {
                     DSHaptics.light()
-                    if let google = event.rawGoogleEvent {
-                        selectedEventPayload = NotificationPayload.fromEvent(google)
-                    } else if let block = event.rawTimeBlock {
-                        selectedEventPayload = NotificationPayload(
-                            isTask: false,
-                            title: block.title,
-                            subtitle: nil,
-                            badge: block.blockType.capitalized,
-                            description: nil,
-                            startTime: block.startTime,
-                            endTime: block.endTime,
-                            priority: nil,
-                            energyLevel: nil,
-                            timeEstimate: block.durationMinutes,
-                            location: nil,
-                            meetingLink: nil,
-                            htmlLink: nil,
-                            taskId: block.linkedTaskId,
-                            eventId: block.id,
-                            attendees: nil
-                        )
-                    }
+                    // handle tap
                 }
             }
         }
@@ -298,49 +340,28 @@ struct TimeView: View {
     // MARK: - Current Time Indicator
     
     private var currentTimeIndicator: some View {
-        let yOffset = yPosition(for: viewModel.currentTime)
+        let now = Date()
+        let cal = Calendar.current
+        let hour = CGFloat(cal.component(.hour, from: now))
+        let minute = CGFloat(cal.component(.minute, from: now))
+        let yOffset = (hour - CGFloat(startHour)) * hourHeight + (minute / 60.0) * hourHeight
         
-        return HStack(spacing: 0) {
-            // Time label — sits in the same 44pt column as hour labels
-            Text(viewModel.currentTime, format: .dateTime.hour().minute())
-                .font(.system(size: 10, weight: .bold, design: .rounded))
+        return HStack(spacing: 4) {
+            Text(now, format: .dateTime.hour().minute())
+                .font(.system(size: 10.5, weight: .bold, design: .monospaced))
                 .foregroundStyle(DSColor.error)
-                .frame(width: 44, alignment: .trailing)
-                .padding(.trailing, 4)
+                .frame(width: 48, alignment: .trailing)
             
-            // Circle dot at start of line
-            ZStack {
-                Circle()
-                    .fill(DSColor.error)
-                    .frame(width: 10, height: 10)
-                Circle()
-                    .fill(DSColor.error.opacity(0.3))
-                    .frame(width: 24, height: 24) // Pulses behind it
-            }
-            .offset(x: -4)
+            Circle()
+                .fill(DSColor.error)
+                .frame(width: 8, height: 8)
+                .glowShadow(DSColor.error)
             
-            // Line extending to the right
             Rectangle()
                 .fill(DSColor.error)
-                .frame(height: 2)
-                .shadow(color: DSColor.error.opacity(0.5), radius: 2, x: 0, y: 1)
+                .frame(height: 1.5)
         }
-        .offset(y: yOffset - 5)
-    }
-    
-    // MARK: - Helpers
-    
-    private func yPosition(for date: Date) -> CGFloat {
-        let cal = Calendar.current
-        let hour = cal.component(.hour, from: date)
-        let minute = cal.component(.minute, from: date)
-        let totalMinutes = CGFloat((hour - startHour) * 60 + minute)
-        return totalMinutes / 60.0 * hourHeight
-    }
-    
-    private func formatHour(_ hour: Int) -> String {
-        let h = hour % 12 == 0 ? 12 : hour % 12
-        let ampm = hour < 12 ? "AM" : "PM"
-        return "\(h) \(ampm)"
+        .offset(y: yOffset - 4)
+        .opacity(hour >= CGFloat(startHour) && hour < CGFloat(endHour) ? 1 : 0)
     }
 }

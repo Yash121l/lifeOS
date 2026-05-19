@@ -14,6 +14,7 @@ final class FirestoreService {
     var notes: [NoteItem] = []
     var timeBlocks: [TimeBlock] = []
     var projects: [Project] = []
+    var focusSessions: [FocusSession] = []
     
     /// Whether data came from local cache (offline) or server
     var isFromCache = false
@@ -33,6 +34,7 @@ final class FirestoreService {
         listenToNotes(userId: userId)
         listenToTimeBlocks(userId: userId)
         listenToProjects(userId: userId)
+        listenToFocusSessions(userId: userId)
     }
     
     func stopListening() {
@@ -43,6 +45,7 @@ final class FirestoreService {
         notes = []
         timeBlocks = []
         projects = []
+        focusSessions = []
     }
     
     // MARK: - Tasks
@@ -258,6 +261,34 @@ final class FirestoreService {
     func deleteProject(_ projectId: String, userId: String) async throws {
         network.markPendingWrite()
         try await projectsCollection(userId: userId).document(projectId).delete()
+    }
+    
+    // MARK: - Focus Sessions
+    
+    private func focusSessionsCollection(userId: String) -> CollectionReference {
+        db.collection("users").document(userId).collection("focusSessions")
+    }
+    
+    private func listenToFocusSessions(userId: String) {
+        let listener = focusSessionsCollection(userId: userId)
+            .order(by: "createdAt", descending: true)
+            .addSnapshotListener { [weak self] snapshot, error in
+                guard let snapshot else { return }
+                self?.isFromCache = snapshot.metadata.isFromCache
+                self?.focusSessions = snapshot.documents.compactMap { doc in
+                    try? doc.data(as: FocusSession.self)
+                }
+            }
+        listeners.append(listener)
+    }
+    
+    func saveFocusSession(_ session: FocusSession, userId: String) async throws {
+        network.markPendingWrite()
+        var s = session
+        s.userId = userId
+        s.createdAt = .now
+        try focusSessionsCollection(userId: userId).document(s.id).setData(from: s)
+        AnalyticsManager.logEvent(.sessionLogged)
     }
     
     // MARK: - Widget Data Refresh

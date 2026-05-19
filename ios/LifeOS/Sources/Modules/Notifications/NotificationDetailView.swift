@@ -105,7 +105,7 @@ struct NotificationDetailView: View {
             
             // Due date for tasks
             if payload.isTask, let dueDate = payload.startTime {
-                detailRow(icon: "calendar.badge.exclamationmark", label: "Due Date", value: formatDateTime(dueDate), tint: dueDate < Date() ? DSColor.error : DSColor.amber)
+                detailRow(icon: "calendar.badge.exclamationmark", label: "Due Date", value: formatDateTime(dueDate), tint: dueDate < Date() ? DSColor.error : DSColor.warning)
             }
             
             // Priority for tasks
@@ -205,7 +205,7 @@ struct NotificationDetailView: View {
                                             .font(.system(size: 14))
                                     case "tentative":
                                         Image(systemName: "questionmark.circle.fill")
-                                            .foregroundStyle(DSColor.amber)
+                                            .foregroundStyle(DSColor.warning)
                                             .font(.system(size: 14))
                                     default:
                                         EmptyView()
@@ -304,7 +304,7 @@ struct NotificationDetailView: View {
     // MARK: - Helpers
     
     private var heroColor: Color {
-        if payload.meetingLink != nil { return DSColor.amber }
+        if payload.meetingLink != nil { return DSColor.warning }
         if payload.isTask { return DSColor.accent }
         return DSColor.cyan
     }
@@ -319,7 +319,7 @@ struct NotificationDetailView: View {
         switch priority {
         case 0: return ("Low", DSColor.success)
         case 2: return ("High", DSColor.error)
-        default: return ("Medium", DSColor.amber)
+        default: return ("Medium", DSColor.warning)
         }
     }
     

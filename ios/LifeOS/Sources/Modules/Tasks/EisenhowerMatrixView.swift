@@ -82,63 +82,65 @@ struct EisenhowerMatrixView: View {
     
     @ViewBuilder
     private func matrixQuadrant(title: String, icon: String, color: Color, tasks: [TaskItem]) -> some View {
-        VStack(alignment: .leading, spacing: DSSpacing.xs) {
-            HStack(spacing: DSSpacing.xxs) {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 6) {
                 Image(systemName: icon)
-                    .font(.system(size: 11))
+                    .font(.system(size: 13, weight: .bold))
                 Text(title)
-                    .font(DSFont.captionSmall())
-                    .fontWeight(.semibold)
+                    .font(.system(size: 12, weight: .bold))
+                    .kerning(0.4)
                 
                 Spacer()
                 
                 Text("\(tasks.count)")
-                    .font(.system(size: 10, weight: .bold))
+                    .font(.system(size: 11, weight: .bold))
                     .foregroundStyle(color)
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 2)
-                    .background(
-                        Capsule().fill(color.opacity(0.15))
-                    )
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 3)
+                    .background(color.opacity(0.15))
+                    .clipShape(Capsule())
             }
             .foregroundStyle(color)
             
             if tasks.isEmpty {
-                Text("Empty")
-                    .font(DSFont.captionSmall())
-                    .foregroundStyle(DSColor.textTertiary)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+                VStack {
+                    Spacer()
+                    Image(systemName: "circle.dotted")
+                        .font(.system(size: 18))
+                        .foregroundStyle(DSColor.textTertiary.opacity(0.3))
+                    Spacer()
+                }
+                .frame(maxWidth: .infinity)
             } else {
-                VStack(alignment: .leading, spacing: DSSpacing.xxs) {
-                    ForEach(tasks.prefix(4)) { task in
-                        HStack(spacing: DSSpacing.xxs) {
+                VStack(alignment: .leading, spacing: 6) {
+                    ForEach(tasks.prefix(3)) { task in
+                        HStack(spacing: 6) {
                             Circle()
-                                .fill(color.opacity(0.5))
+                                .fill(color.opacity(0.6))
                                 .frame(width: 4, height: 4)
                             Text(task.title)
-                                .font(.system(size: 11))
-                                .foregroundStyle(DSColor.textSecondary)
+                                .font(.system(size: 12.5))
+                                .foregroundStyle(.white.opacity(0.85))
                                 .lineLimit(1)
                         }
                     }
-                    if tasks.count > 4 {
-                        Text("+\(tasks.count - 4) more")
-                            .font(.system(size: 10))
+                    if tasks.count > 3 {
+                        Text("+\(tasks.count - 3) more")
+                            .font(.system(size: 11, weight: .medium))
                             .foregroundStyle(DSColor.textTertiary)
+                            .padding(.leading, 10)
                     }
                 }
                 .frame(maxHeight: .infinity, alignment: .top)
             }
         }
-        .padding(DSSpacing.sm)
+        .padding(14)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .background(
-            RoundedRectangle(cornerRadius: DSRadius.md)
-                .fill(color.opacity(0.05))
-                .overlay(
-                    RoundedRectangle(cornerRadius: DSRadius.md)
-                        .stroke(color.opacity(0.15), lineWidth: 0.5)
-                )
+        .background(DSColor.surface)
+        .clipShape(RoundedRectangle(cornerRadius: 18))
+        .overlay(
+            RoundedRectangle(cornerRadius: 18)
+                .stroke(DSColor.hairline, lineWidth: 0.5)
         )
     }
     

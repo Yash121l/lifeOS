@@ -44,7 +44,7 @@ Native iOS Features (Mandatory)
 	•	Focus Modes integration — surfaces relevant task lists based on iPhone Focus (Work, Personal, Sleep)
 	•	Live Activities — display active time blocks and countdowns in Dynamic Island and Lock Screen
 	•	Haptic Engine — subtle confirmations on task completion, budget alerts, AI reschedules
-	•	iCloud Sync — cross-device state (iPhone + iPad + Mac) via CloudKit
+	•	Firebase Sync — cross-device state and web platform sync via Firestore
 	•	CoreLocation — GPS-triggered context switching between task profiles
 	•	Background App Refresh — sync calendar events, financial transactions in background
 	•	Apple Calendar, Reminders, and Contacts integration via EventKit and CNContactStore
@@ -59,12 +59,9 @@ Native performance, Dynamic Island, WidgetKit
 Language
 Swift 5.9+
 Concurrency, async/await for API calls
-Local Database
-SwiftData (iOS 17)
-Persistent offline-first storage
-Sync
-CloudKit (iCloud)
-Privacy-respecting, no extra infra needed
+Database & Sync
+Firebase Firestore
+Real-time cross-platform sync with offline caching
 AI Engine
 Claude API (Anthropic) + on-device ML (CoreML)
 Smart scheduling, NLP task input
@@ -302,7 +299,7 @@ Pro for up to 5 family members, shared budgets and expense splits
 10. Privacy & Security
 	•	Sign in with Apple as primary authentication — no passwords stored by LifeOS
 	•	All financial API tokens stored in iOS Keychain — never transmitted to LifeOS servers
-	•	End-to-end encryption for CloudKit sync — only the user's iCloud account can decrypt data
+	•	Secure data sync via Firebase Firestore — protected by strict Firestore Security Rules
 	•	On-device ML for NLP, expense categorization, and GPS geofencing — no raw personal data leaves the device
 	•	Plaid/Salt Edge tokens expire automatically; users can revoke anytime from Settings
 	•	App Tracking Transparency (ATT) compliant — no cross-app tracking
@@ -316,7 +313,7 @@ Duration
 Key Deliverables
 Phase 0: Foundation
 Weeks 1–4
-SwiftUI app shell, iCloud sync, Apple Calendar integration, basic task CRUD, CI/CD pipeline
+SwiftUI app shell, Firebase sync, Apple Calendar integration, basic task CRUD, CI/CD pipeline
 Phase 1: Core Modules
 Weeks 5–12
 Full Calendar module, Task module with NLP, Plaid/Salt Edge integration, basic notes

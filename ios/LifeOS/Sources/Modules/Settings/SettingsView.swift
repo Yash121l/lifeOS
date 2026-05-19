@@ -91,7 +91,7 @@ struct SettingsView: View {
             sectionLabel("PREFERENCES")
             
             VStack(spacing: 0) {
-                settingsRow(icon: "indianrupeesign.circle", iconColor: DSColor.amber) {
+                settingsRow(icon: "indianrupeesign.circle", iconColor: DSColor.warning) {
                     HStack {
                         Text("Currency")
                             .font(DSFont.body())
@@ -170,7 +170,7 @@ struct SettingsView: View {
                 
                 settingsDivider
                 
-                settingsRow(icon: "clock.fill", iconColor: DSColor.amber) {
+                settingsRow(icon: "clock.fill", iconColor: DSColor.warning) {
                     HStack {
                         Text("Remind Before")
                             .font(DSFont.body())
@@ -408,7 +408,7 @@ struct SettingsView: View {
             sectionLabel("ACCOUNT")
             
             VStack(spacing: 0) {
-                settingsRow(icon: "crown.fill", iconColor: DSColor.amber) {
+                settingsRow(icon: "crown.fill", iconColor: DSColor.warning) {
                     HStack {
                         Text("Manage Subscription")
                             .font(DSFont.body())

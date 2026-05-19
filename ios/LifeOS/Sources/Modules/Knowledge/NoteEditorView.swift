@@ -18,7 +18,8 @@ struct NoteEditorView: View {
     init(note: NoteItem?) {
         self.existingNote = note
         _title = State(initialValue: note?.title ?? "")
-        _content = State(initialValue: note?.content ?? "")
+        // Strip any HTML tags that may have been stored by older rich-text editors
+        _content = State(initialValue: (note?.content ?? "").strippedHTML)
         _tagsText = State(initialValue: note?.tagsRaw ?? "")
         _isPinned = State(initialValue: note?.isPinned ?? false)
     }
@@ -31,112 +32,45 @@ struct NoteEditorView: View {
     
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: DSSpacing.lg) {
-                    // Title
-                    TextField("Note title...", text: $title)
-                        .font(.system(size: 24, weight: .bold, design: .rounded))
-                        .foregroundStyle(.white)
+            Form {
+                Section {
+                    TextField("Note title", text: $title)
+                        .font(.headline)
                         .onChange(of: title) { _, _ in hasChanges = true }
                     
-                    // Tags
-                    VStack(alignment: .leading, spacing: DSSpacing.xs) {
-                        // Existing tags
-                        if !tags.isEmpty {
-                            ScrollView(.horizontal, showsIndicators: false) {
-                                HStack(spacing: DSSpacing.xs) {
-                                    ForEach(tags, id: \.self) { tag in
-                                        HStack(spacing: DSSpacing.xxs) {
-                                            Text("#\(tag)")
-                                                .font(DSFont.caption())
-                                                .foregroundStyle(DSColor.accent)
-                                            
-                                            Button {
-                                                removeTag(tag)
-                                            } label: {
-                                                Image(systemName: "xmark")
-                                                    .font(.system(size: 8, weight: .bold))
-                                                    .foregroundStyle(DSColor.textTertiary)
-                                            }
-                                        }
-                                        .padding(.horizontal, DSSpacing.sm)
-                                        .padding(.vertical, DSSpacing.xxs + 1)
-                                        .background(
-                                            Capsule()
-                                                .fill(DSColor.accent.opacity(0.1))
-                                                .overlay(Capsule().stroke(DSColor.accent.opacity(0.2), lineWidth: 1))
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                        
-                        // Tag input
-                        HStack(spacing: DSSpacing.xs) {
-                            Image(systemName: "tag")
-                                .font(.system(size: 13))
-                                .foregroundStyle(DSColor.textTertiary)
-                            TextField("Add tags (comma separated)", text: $tagsText)
-                                .font(DSFont.caption())
-                                .foregroundStyle(DSColor.textSecondary)
-                                .onChange(of: tagsText) { _, _ in hasChanges = true }
-                        }
-                        .padding(DSSpacing.sm)
-                        .background(
-                            RoundedRectangle(cornerRadius: DSRadius.sm)
-                                .fill(DSColor.surfaceElevated)
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: DSRadius.sm)
-                                        .stroke(DSColor.cardBorder, lineWidth: 1)
-                                )
-                        )
-                    }
-                    
-                    // Divider
-                    Rectangle()
-                        .fill(DSColor.cardBorder)
-                        .frame(height: 1)
-                    
-                    // Content editor
-                    ZStack(alignment: .topLeading) {
-                        if content.isEmpty {
-                            Text("Start writing...")
-                                .font(DSFont.body())
-                                .foregroundStyle(DSColor.textTertiary)
-                                .padding(.top, 8)
-                                .padding(.leading, 4)
-                        }
-                        
-                        TextEditor(text: $content)
-                            .font(DSFont.body())
-                            .foregroundStyle(DSColor.textPrimary)
-                            .scrollContentBackground(.hidden)
-                            .frame(minHeight: 300)
-                            .onChange(of: content) { _, _ in hasChanges = true }
-                    }
-                    
-                    // Delete for existing
-                    if !isNew {
-                        DSButton("Delete Note", icon: "trash", style: .destructive, isFullWidth: true) {
+                    TextField("Tags (comma separated)", text: $tagsText)
+                        .onChange(of: tagsText) { _, _ in hasChanges = true }
+                }
+                
+                Section("Content") {
+                    TextEditor(text: $content)
+                        .frame(minHeight: 250)
+                        .onChange(of: content) { _, _ in hasChanges = true }
+                }
+                
+                if !isNew {
+                    Section {
+                        Button(role: .destructive) {
                             DSHaptics.error()
                             Task {
                                 try? await store.deleteNote(existingNote!.id, userId: userId)
                                 dismiss()
                             }
+                        } label: {
+                            HStack {
+                                Spacer()
+                                Text("Delete Note")
+                                Spacer()
+                            }
                         }
-                        .padding(.top, DSSpacing.lg)
                     }
                 }
-                .padding(.horizontal, DSSpacing.md)
-                .padding(.vertical, DSSpacing.lg)
             }
-            .background(DSColor.background)
             .navigationTitle(isNew ? "New Note" : "Edit Note")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Button("Cancel") { dismiss() }
-                        .foregroundStyle(DSColor.textSecondary)
                 }
                 
                 ToolbarItemGroup(placement: .topBarTrailing) {
@@ -147,13 +81,14 @@ struct NoteEditorView: View {
                     } label: {
                         Image(systemName: isPinned ? "pin.fill" : "pin")
                             .font(.system(size: 15))
-                            .foregroundStyle(isPinned ? DSColor.amber : DSColor.textTertiary)
+                            .foregroundStyle(isPinned ? DSColor.warning : DSColor.textTertiary)
                     }
                     
-                    Button("Save") { saveNote() }
-                        .font(DSFont.headline())
-                        .foregroundStyle(hasChanges ? DSColor.accent : DSColor.textTertiary)
-                        .disabled(!hasChanges)
+                    Button("Save") {
+                        saveNote()
+                    }
+                    .fontWeight(.bold)
+                    .disabled(title.isEmpty)
                 }
             }
         }

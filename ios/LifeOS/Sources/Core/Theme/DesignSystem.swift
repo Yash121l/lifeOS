@@ -4,38 +4,43 @@ import SwiftUI
 
 enum DSColor {
     // Core surfaces
-    static let background = Color(hex: "050507")
-    static let surface = Color(hex: "111113")
-    static let surfaceElevated = Color(hex: "1A1A1F")
+    static let background = Color(hex: "000000")
+    static let surface = Color(hex: "131316")
+    static let surfaceElevated = Color(hex: "1C1C20")
     static let surfaceLight = Color(hex: "222228")
+    static let hairline = Color.white.opacity(0.10)
     static let cardBorder = Color.white.opacity(0.06)
     
     // Accent palette
-    static let accent = Color(hex: "6C5CE7")
+    static let accent = Color(hex: "6E63FF")
     static let accentLight = Color(hex: "A29BFE")
-    static let accentGlow = Color(hex: "6C5CE7").opacity(0.25)
-    
-    // Secondary accents
-    static let cyan = Color(hex: "00CEC9")
-    static let coral = Color(hex: "FF6B6B")
-    static let amber = Color(hex: "FDCB6E")
-    static let mint = Color(hex: "00B894")
+    static let accentGlow = Color(hex: "6E63FF").opacity(0.25)
     
     // Semantic
-    static let success = Color(hex: "00B894")
-    static let warning = Color(hex: "FDCB6E")
-    static let error = Color(hex: "FF6B6B")
-    static let info = Color(hex: "74B9FF")
+    static let success = Color(hex: "2BB673")
+    static let warning = Color(hex: "E8A92C")
+    static let error = Color(hex: "FF453A")
+    static let info = Color(hex: "5BAEFF")
+    
+    // Legacy support
+    static let cyan = Color(hex: "5BAEFF")
+    static let amber = Color(hex: "E8A92C")
+    static let coral = Color(hex: "FF453A")
+    static let mint = Color(hex: "2BB673")
     
     // Text
     static let textPrimary = Color.white
-    static let textSecondary = Color.white.opacity(0.6)
-    static let textTertiary = Color.white.opacity(0.3)
+    static let textSecondary = Color.white.opacity(0.62)
+    static let textTertiary = Color.white.opacity(0.32)
+    
+    // Fill
+    static let fill = Color.white.opacity(0.18)
+    static let fillSecondary = Color.white.opacity(0.10)
     
     // Energy levels
-    static let energyHigh = Color(hex: "FF6B6B")
-    static let energyMedium = Color(hex: "FDCB6E")
-    static let energyLow = Color(hex: "00B894")
+    static let energyHigh = Color(hex: "FF453A")
+    static let energyMedium = Color(hex: "E8A92C")
+    static let energyLow = Color(hex: "2BB673")
     
     // Block types
     static let deepWork = Color(hex: "6C5CE7")
@@ -112,6 +117,12 @@ enum DSRadius {
     static let xl: CGFloat = 20
     static let xxl: CGFloat = 24
     static let pill: CGFloat = 100
+    
+    // Design specific
+    static let card: CGFloat = 22
+    static let row: CGFloat = 16
+    static let hero: CGFloat = 28
+    static let circle: CGFloat = 999
 }
 
 // MARK: - View Modifiers

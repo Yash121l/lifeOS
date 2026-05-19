@@ -25,142 +25,168 @@ struct EventEntryView: View {
     
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(spacing: DSSpacing.xl) {
-                    // Title
-                    VStack(alignment: .leading, spacing: DSSpacing.xs) {
-                        Text("EVENT NAME")
-                            .font(DSFont.captionSmall())
-                            .foregroundStyle(DSColor.textTertiary)
-                        DSTextField(placeholder: "What are you working on?", text: $title)
-                    }
-                    
-                    // Block type
-                    VStack(alignment: .leading, spacing: DSSpacing.xs) {
-                        Text("TYPE")
-                            .font(DSFont.captionSmall())
-                            .foregroundStyle(DSColor.textTertiary)
+            ZStack(alignment: .bottom) {
+                ScrollView(showsIndicators: false) {
+                    VStack(spacing: 24) {
+                        titleSection
+                            .padding(.top, 20)
                         
-                        HStack(spacing: DSSpacing.xs) {
-                            ForEach(blockTypes, id: \.0) { type, label, icon, color in
-                                Button {
-                                    DSHaptics.selection()
-                                    withAnimation(DSAnimation.springQuick) { selectedType = type }
-                                } label: {
-                                    VStack(spacing: DSSpacing.xxs) {
-                                        Image(systemName: icon)
-                                            .font(.system(size: 18))
-                                            .foregroundStyle(selectedType == type ? .white : color)
-                                        Text(label)
-                                            .font(.system(size: 10, weight: .medium))
-                                            .foregroundStyle(selectedType == type ? .white : DSColor.textSecondary)
-                                    }
-                                    .frame(maxWidth: .infinity)
-                                    .padding(.vertical, DSSpacing.sm)
-                                    .background(
-                                        RoundedRectangle(cornerRadius: DSRadius.md)
-                                            .fill(selectedType == type ? color : color.opacity(0.08))
-                                            .overlay(
-                                                RoundedRectangle(cornerRadius: DSRadius.md)
-                                                    .stroke(selectedType == type ? color : color.opacity(0.2), lineWidth: 1)
-                                            )
-                                    )
-                                }
-                            }
-                        }
-                    }
-                    
-                    // Time pickers
-                    VStack(spacing: DSSpacing.sm) {
-                        HStack {
-                            Text("Start")
-                                .font(DSFont.body())
-                                .foregroundStyle(.white)
-                            Spacer()
-                            DatePicker("", selection: $startTime, displayedComponents: [.date, .hourAndMinute])
-                                .labelsHidden()
-                                .tint(DSColor.accent)
-                        }
-                        .glassCard(padding: DSSpacing.sm)
+                        typePicker
                         
-                        HStack {
-                            Text("End")
-                                .font(DSFont.body())
-                                .foregroundStyle(.white)
-                            Spacer()
-                            DatePicker("", selection: $endTime, in: startTime..., displayedComponents: [.date, .hourAndMinute])
-                                .labelsHidden()
-                                .tint(DSColor.accent)
-                        }
-                        .glassCard(padding: DSSpacing.sm)
+                        timeSection
+                        
+                        durationShortcuts
+                        
+                        Spacer(minLength: 120)
                     }
-                    
-                    // Duration preview
-                    let minutes = Int(endTime.timeIntervalSince(startTime) / 60)
-                    if minutes > 0 {
-                        HStack {
-                            Image(systemName: "clock")
-                                .foregroundStyle(DSColor.textTertiary)
-                            Text("Duration: \(formatDuration(minutes))")
-                                .font(DSFont.caption())
+                    .padding(.horizontal, 22)
+                }
+                .background(DSColor.background)
+                
+                // Bottom Action Button
+                VStack(spacing: 0) {
+                    Divider().background(DSColor.hairline)
+                    HStack {
+                        Button { dismiss() } label: {
+                            Text("Cancel")
+                                .font(.system(size: 17, weight: .medium))
                                 .foregroundStyle(DSColor.textSecondary)
                         }
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .glassCard(padding: DSSpacing.sm)
-                    }
-                    
-                    // Quick durations
-                    VStack(alignment: .leading, spacing: DSSpacing.xs) {
-                        Text("QUICK SET")
-                            .font(DSFont.captionSmall())
-                            .foregroundStyle(DSColor.textTertiary)
                         
-                        HStack(spacing: DSSpacing.xs) {
-                            ForEach([30, 60, 90, 120], id: \.self) { mins in
-                                Button {
-                                    DSHaptics.selection()
-                                    withAnimation(DSAnimation.springQuick) {
-                                        endTime = startTime.addingTimeInterval(Double(mins) * 60)
-                                    }
-                                } label: {
-                                    Text(formatDuration(mins))
-                                        .font(DSFont.caption())
-                                        .foregroundStyle(DSColor.textSecondary)
-                                        .frame(maxWidth: .infinity)
-                                        .padding(.vertical, DSSpacing.xs)
-                                        .background(
-                                            RoundedRectangle(cornerRadius: DSRadius.sm)
-                                                .fill(DSColor.surfaceElevated)
-                                                .overlay(
-                                                    RoundedRectangle(cornerRadius: DSRadius.sm)
-                                                        .stroke(DSColor.cardBorder, lineWidth: 1)
-                                                )
-                                        )
-                                }
-                            }
+                        Spacer()
+                        
+                        Button { saveEvent() } label: {
+                            Text("Schedule Event")
+                                .font(.system(size: 17, weight: .bold))
+                                .padding(.horizontal, 24)
+                                .padding(.vertical, 12)
+                                .background(title.isEmpty ? DSColor.surfaceElevated : DSColor.accent)
+                                .foregroundStyle(title.isEmpty ? DSColor.textTertiary : .white)
+                                .clipShape(Capsule())
                         }
-                    }
-                }
-                .padding(.horizontal, DSSpacing.md)
-                .padding(.vertical, DSSpacing.lg)
-            }
-            .background(DSColor.background)
-            .navigationTitle("New Event")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    Button("Cancel") { dismiss() }
-                        .foregroundStyle(DSColor.textSecondary)
-                }
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button("Save") { saveEvent() }
-                        .font(DSFont.headline())
-                        .foregroundStyle(title.isEmpty ? DSColor.textTertiary : DSColor.accent)
                         .disabled(title.isEmpty)
+                    }
+                    .padding(.horizontal, 22)
+                    .padding(.vertical, 16)
+                    .background(.ultraThinMaterial)
+                }
+            }
+            .ignoresSafeArea(.keyboard)
+            .toolbar(.hidden)
+        }
+        .preferredColorScheme(.dark)
+    }
+    
+    // MARK: - Sections
+    
+    private var titleSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            TextField("Event name", text: $title)
+                .font(.system(size: 28, weight: .bold, design: .rounded))
+                .foregroundStyle(.white)
+            
+            Rectangle()
+                .fill(DSColor.hairline)
+                .frame(height: 1)
+        }
+    }
+    
+    private var typePicker: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("TYPE")
+                .font(.system(size: 11, weight: .bold))
+                .foregroundStyle(DSColor.textTertiary)
+                .kerning(0.6)
+            
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 10), count: 2), spacing: 10) {
+                ForEach(blockTypes, id: \.0) { type, label, icon, color in
+                    Button {
+                        DSHaptics.selection()
+                        withAnimation { selectedType = type }
+                    } label: {
+                        HStack(spacing: 12) {
+                            Image(systemName: icon)
+                                .font(.system(size: 16))
+                                .foregroundStyle(selectedType == type ? .white : color)
+                            
+                            Text(label)
+                                .font(.system(size: 14, weight: .bold))
+                                .foregroundStyle(selectedType == type ? .white : DSColor.textSecondary)
+                            
+                            Spacer()
+                        }
+                        .padding(.horizontal, 14)
+                        .frame(height: 48)
+                        .background(selectedType == type ? color : DSColor.surface)
+                        .clipShape(RoundedRectangle(cornerRadius: 14))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 14)
+                                .stroke(selectedType == type ? color : DSColor.hairline, lineWidth: 0.5)
+                        )
+                    }
                 }
             }
         }
-        .preferredColorScheme(.dark)
+    }
+    
+    private var timeSection: some View {
+        VStack(spacing: 1) {
+            HStack {
+                Label("Starts", systemImage: "clock")
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundStyle(.white)
+                Spacer()
+                DatePicker("", selection: $startTime)
+                    .labelsHidden()
+                    .tint(DSColor.accent)
+            }
+            .padding(18)
+            .background(DSColor.surface)
+            
+            Divider().background(DSColor.hairline)
+            
+            HStack {
+                Label("Ends", systemImage: "clock.fill")
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundStyle(.white)
+                Spacer()
+                DatePicker("", selection: $endTime, in: startTime...)
+                    .labelsHidden()
+                    .tint(DSColor.accent)
+            }
+            .padding(18)
+            .background(DSColor.surface)
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 22))
+        .overlay(RoundedRectangle(cornerRadius: 22).stroke(DSColor.hairline, lineWidth: 0.5))
+    }
+    
+    private var durationShortcuts: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("QUICK DURATION")
+                .font(.system(size: 11, weight: .bold))
+                .foregroundStyle(DSColor.textTertiary)
+            
+            HStack(spacing: 8) {
+                ForEach([30, 60, 90, 120], id: \.self) { mins in
+                    Button {
+                        DSHaptics.selection()
+                        withAnimation {
+                            endTime = startTime.addingTimeInterval(Double(mins) * 60)
+                        }
+                    } label: {
+                        Text(formatDuration(mins))
+                            .font(.system(size: 13, weight: .bold))
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 38)
+                            .background(DSColor.surface)
+                            .foregroundStyle(DSColor.textSecondary)
+                            .clipShape(RoundedRectangle(cornerRadius: 10))
+                            .overlay(RoundedRectangle(cornerRadius: 10).stroke(DSColor.hairline, lineWidth: 0.5))
+                    }
+                }
+            }
+        }
     }
     
     private func saveEvent() {

@@ -18,6 +18,7 @@ public struct AnalyticsManager {
         case calendarConnected = "calendar_connected"
         case calendarDisconnected = "calendar_disconnected"
         case settingChanged = "setting_changed"
+        case sessionLogged = "session_logged"
     }
     
     /// Log a custom event with properties

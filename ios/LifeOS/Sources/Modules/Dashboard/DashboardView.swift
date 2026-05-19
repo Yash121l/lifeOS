@@ -5,6 +5,8 @@ struct DashboardView: View {
     @State private var store = FirestoreService.shared
     @State private var calService = GoogleCalendarService.shared
     @State private var showSettings = false
+    @State private var showAnalytics = false
+    @State private var focusTimer = FocusTimerManager.shared
     
     private var userId: String { authService.currentUser?.uid ?? "" }
     
@@ -101,39 +103,61 @@ struct DashboardView: View {
             .reduce(0) { $0 + $1.amount }
     }
     
+    private var todayFocusMinutes: Int {
+        store.focusSessions
+            .filter { Calendar.current.isDateInToday($0.startedAt) }
+            .reduce(0) { $0 + ($1.durationSeconds / 60) }
+    }
+    
+    private var dateStr: String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "EEEE, MMM d"
+        return formatter.string(from: Date())
+    }
+    
     var body: some View {
         NavigationStack {
             ScrollView(showsIndicators: false) {
-                VStack(spacing: DSSpacing.xl) {
+                VStack(spacing: 0) {
                     headerSection
+                        .padding(.horizontal, DSSpacing.md)
+                        .padding(.top, 40)
+                    
+                    sublineSection
+                        .padding(.horizontal, DSSpacing.md)
+                        .padding(.top, 14)
+                        .padding(.bottom, 18)
+                    
+                    focusHeroSection
+                        .padding(.horizontal, DSSpacing.md)
+                        .padding(.bottom, 24)
+                    
                     statsRow
-                    timelineSection
+                        .padding(.horizontal, DSSpacing.md)
+                        .padding(.bottom, 20)
+                    
+                    analyticsTeaser
+                        .padding(.horizontal, DSSpacing.md)
+                        .padding(.bottom, 28)
+                    
                     upNextSection
-                    financeSection
-                    Spacer(minLength: 80)
+                        .padding(.horizontal, DSSpacing.md)
+                    
+                    Spacer(minLength: 120)
                 }
-                .padding(.horizontal, DSSpacing.md)
-                .padding(.top, DSSpacing.xs)
             }
             .background(DSColor.background)
-            .navigationTitle("Dashboard")
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        DSHaptics.selection()
-                        showSettings = true
-                    } label: {
-                        DSAvatar(initials: authService.initials, size: 32)
-                    }
-                }
-            }
+            .toolbar(.hidden)
             .sheet(isPresented: $showSettings) {
                 SettingsView()
+                    .presentationDetents([.large])
+                    .presentationDragIndicator(.visible)
             }
-            .task {
-                if calService.isConnected && calService.events.isEmpty {
-                    await calService.performSync()
-                }
+            .sheet(isPresented: $showAnalytics) {
+                FocusAnalyticsView()
+                    .presentationDetents([.large])
+                    .presentationDragIndicator(.visible)
+                    .presentationBackground(DSColor.background)
             }
         }
     }
@@ -141,63 +165,359 @@ struct DashboardView: View {
     // MARK: - Header
     
     private var headerSection: some View {
-        let (greeting, icon) = greetingWithIcon
-        
-        return VStack(alignment: .leading, spacing: DSSpacing.xxs) {
-            HStack(spacing: DSSpacing.xs) {
-                Image(systemName: icon)
-                    .foregroundStyle(DSColor.accent)
-                    .font(.system(size: 14))
-                Text("\(greeting),")
-                    .font(DSFont.subheadline())
+        let (greeting, _) = greetingWithIcon
+        return HStack(alignment: .top) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(dateStr)
+                    .font(.system(size: 13, weight: .medium))
                     .foregroundStyle(DSColor.textSecondary)
+                
+                (Text("\(greeting), ").foregroundStyle(Color.white)
+                + Text(authService.displayName).foregroundStyle(DSColor.textSecondary))
+                    .font(.system(size: 34, weight: .bold, design: .rounded))
             }
             
-            Text(authService.displayName)
-                .font(.system(size: 34, weight: .bold, design: .rounded))
-                .foregroundStyle(.white)
+            Spacer()
+            
+            HStack(spacing: DSSpacing.sm) {
+                Button {
+                    DSHaptics.selection()
+                } label: {
+                    Image(systemName: "bell.fill")
+                        .font(.system(size: 18))
+                        .foregroundStyle(.white)
+                        .frame(width: 40, height: 40)
+                        .background(Circle().fill(DSColor.surface))
+                        .overlay(
+                            Circle()
+                                .fill(DSColor.accent)
+                                .frame(width: 8, height: 8)
+                                .offset(x: 10, y: -10)
+                        )
+                }
+                
+                Button {
+                    DSHaptics.selection()
+                    showSettings = true
+                } label: {
+                    DSAvatar(initials: authService.initials, size: 40)
+                }
+            }
         }
+    }
+    
+    private var sublineSection: some View {
+        Group {
+            if pendingTasks.isEmpty {
+                Text("All caught up. Enjoy the quiet.")
+            } else {
+                Text("You have ")
+                + Text("\(pendingTasks.count) \(pendingTasks.count == 1 ? "task" : "tasks")").bold().foregroundStyle(.white)
+                + Text(" and ")
+                + Text("\(todaysEvents.count) \(todaysEvents.count == 1 ? "event" : "events")").bold().foregroundStyle(.white)
+                + Text(" today.")
+            }
+        }
+        .font(.system(size: 15))
+        .foregroundStyle(DSColor.textSecondary)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.top, DSSpacing.xs)
+    }
+    
+    // MARK: - Focus Hero
+    
+    // MARK: - Focus Hero (Inline Timer)
+
+    private var focusHeroSection: some View {
+        Group {
+            if focusTimer.hasActiveSession {
+                // Active timer card — matches the design reference
+                inlineTimerCard
+            } else if let focus = pendingTasks.first {
+                // Idle state — tap to start
+                idleFocusCard(focus)
+            }
+        }
+    }
+
+    private var inlineTimerCard: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            // Header row
+            HStack(spacing: 8) {
+                Circle()
+                    .fill(focusTimer.isRunning ? DSColor.error : DSColor.warning)
+                    .frame(width: 6, height: 6)
+                    .opacity(focusTimer.isRunning ? 1 : 0.6)
+                Text(focusTimer.isRunning ? "FOCUSING" : "PAUSED")
+                    .font(.system(size: 12, weight: .bold))
+                    .kerning(0.6)
+                    .foregroundStyle(focusTimer.isRunning ? DSColor.error : DSColor.warning)
+                Spacer()
+                Text("Goal · \(focusTimer.goalFormatted)")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(DSColor.textTertiary)
+            }
+
+            // Task title
+            Text(focusTimer.taskTitle)
+                .font(.system(size: 18, weight: .semibold, design: .rounded))
+                .foregroundStyle(.white)
+                .lineLimit(2)
+
+            // Big elapsed clock
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                Text(focusTimer.elapsedFormatted)
+                    .font(.system(size: 40, weight: .bold, design: .monospaced))
+                    .foregroundStyle(.white)
+                    .contentTransition(.numericText())
+                Text("/ \(focusTimer.goalFormatted)")
+                    .font(.system(size: 14, weight: .medium, design: .monospaced))
+                    .foregroundStyle(DSColor.textTertiary)
+            }
+
+            // Progress bar
+            GeometryReader { geo in
+                ZStack(alignment: .leading) {
+                    RoundedRectangle(cornerRadius: 3)
+                        .fill(DSColor.surfaceElevated)
+                        .frame(height: 4)
+                    RoundedRectangle(cornerRadius: 3)
+                        .fill(DSColor.accent)
+                        .frame(width: geo.size.width * focusTimer.progress, height: 4)
+                        .animation(.linear(duration: 0.5), value: focusTimer.progress)
+                }
+            }
+            .frame(height: 4)
+
+            // Percentage + remaining
+            HStack {
+                Text("\(Int(focusTimer.progress * 100))% complete")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(DSColor.accent)
+                Spacer()
+                Text("\(focusTimer.remainingFormatted) left")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(DSColor.textTertiary)
+            }
+
+            // Pause / End buttons
+            HStack(spacing: 10) {
+                Button {
+                    DSHaptics.selection()
+                    if focusTimer.isRunning { focusTimer.pause() }
+                    else { focusTimer.resume() }
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: focusTimer.isRunning ? "pause.fill" : "play.fill")
+                            .font(.system(size: 14, weight: .bold))
+                        Text(focusTimer.isRunning ? "Pause" : "Resume")
+                            .font(.system(size: 15, weight: .bold))
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                    .background(DSColor.surfaceElevated)
+                    .foregroundStyle(.white)
+                    .clipShape(RoundedRectangle(cornerRadius: 14))
+                }
+
+                Button {
+                    DSHaptics.medium()
+                    focusTimer.end(saveToFirebase: true)
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "stop.fill")
+                            .font(.system(size: 14, weight: .bold))
+                        Text("End")
+                            .font(.system(size: 15, weight: .bold))
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                    .background(DSColor.accent)
+                    .foregroundStyle(.white)
+                    .clipShape(RoundedRectangle(cornerRadius: 14))
+                }
+            }
+            .padding(.top, 4)
+        }
+        .padding(22)
+        .background(
+            RoundedRectangle(cornerRadius: 28)
+                .fill(
+                    LinearGradient(
+                        colors: [DSColor.accent.opacity(0.18), DSColor.surface],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 28)
+                        .stroke(DSColor.accent.opacity(0.25), lineWidth: 0.5)
+                )
+        )
+    }
+
+    private func idleFocusCard(_ focus: TaskItem) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 8) {
+                Circle()
+                    .fill(DSColor.accent)
+                    .frame(width: 6, height: 6)
+                Text("FOCUS NEXT")
+                    .font(.system(size: 12, weight: .bold))
+                    .kerning(0.6)
+                    .foregroundStyle(DSColor.accent)
+            }
+
+            Text(focus.title)
+                .font(.system(size: 22, weight: .semibold, design: .rounded))
+                .foregroundStyle(.white)
+                .lineLimit(2)
+                .fixedSize(horizontal: false, vertical: true)
+
+            HStack(spacing: 8) {
+                Label(focus.formattedTimeEstimate, systemImage: "clock")
+                    .font(.system(size: 11, weight: .bold))
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(DSColor.accent.opacity(0.15))
+                    .foregroundStyle(DSColor.accent)
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+
+                if focus.priority == 2 {
+                    Label("High", systemImage: "flame.fill")
+                        .font(.system(size: 11, weight: .bold))
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(Color(hex: "FF6A4A").opacity(0.15))
+                        .foregroundStyle(Color(hex: "FF6A4A"))
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                }
+            }
+
+            HStack {
+                Text(focus.formattedTimeEstimate)
+                    .font(.system(size: 32, weight: .bold, design: .monospaced))
+                    .foregroundStyle(.white)
+
+                Spacer()
+
+                Button {
+                    DSHaptics.medium()
+                    focusTimer.start(
+                        taskId: focus.id,
+                        title: focus.title,
+                        goalMinutes: focus.timeEstimateMinutes
+                    )
+                } label: {
+                    Image(systemName: "play.fill")
+                        .font(.system(size: 18, weight: .bold))
+                        .foregroundStyle(.white)
+                        .frame(width: 48, height: 48)
+                        .background(Circle().fill(DSColor.accent))
+                }
+            }
+            .padding(.top, 8)
+        }
+        .padding(22)
+        .background(
+            RoundedRectangle(cornerRadius: 28)
+                .fill(
+                    LinearGradient(
+                        colors: [DSColor.accent.opacity(0.15), DSColor.surface],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 28)
+                        .stroke(DSColor.hairline, lineWidth: 0.5)
+                )
+        )
     }
     
     // MARK: - Stats Row
     
     private var statsRow: some View {
-        HStack(spacing: DSSpacing.sm) {
-            miniStat(value: "\(pendingTasks.count)", label: "Pending", icon: "circle", tint: DSColor.amber)
-            miniStat(value: "\(completedToday)", label: "Done", icon: "checkmark.circle.fill", tint: DSColor.success)
-            miniStat(value: "\(todaysEvents.count)", label: "Events", icon: "calendar", tint: DSColor.cyan)
+        HStack(spacing: 10) {
+            statCard(value: "\(pendingTasks.count)", label: "Pending", hue: DSColor.warning)
+        statCard(value: "\(completedToday)", label: "Done", hue: DSColor.success)
+        statCard(value: "\(todaysEvents.count)", label: "Events", hue: DSColor.info)
         }
     }
     
-    private func miniStat(value: String, label: String, icon: String, tint: Color) -> some View {
-        VStack(spacing: DSSpacing.xs) {
-            HStack(spacing: DSSpacing.xxs) {
-                Image(systemName: icon)
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(tint)
-                    .shadow(color: tint.opacity(0.5), radius: 4, x: 0, y: 0)
-                Text(value)
-                    .font(.system(size: 24, weight: .bold, design: .rounded))
-                    .foregroundStyle(.white)
-            }
+    private func statCard(value: String, label: String, hue: Color) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Circle()
+                .fill(hue)
+                .frame(width: 8, height: 8)
+                .padding(.bottom, 6)
+            
+            Text(value)
+                .font(.system(size: 28, weight: .bold, design: .rounded))
+                .foregroundStyle(.white)
+            
             Text(label)
-                .font(DSFont.captionSmall())
-                .foregroundStyle(DSColor.textTertiary)
+                .font(.system(size: 12.5))
+                .foregroundStyle(DSColor.textSecondary)
         }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, DSSpacing.md)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 14)
         .background(
-            RoundedRectangle(cornerRadius: DSRadius.lg)
+            RoundedRectangle(cornerRadius: 18)
                 .fill(DSColor.surface)
                 .overlay(
-                    RoundedRectangle(cornerRadius: DSRadius.lg)
-                        .stroke(LinearGradient(colors: [tint.opacity(0.3), .clear], startPoint: .topLeading, endPoint: .bottomTrailing), lineWidth: 1)
+                    RoundedRectangle(cornerRadius: 18)
+                        .stroke(DSColor.hairline, lineWidth: 0.5)
                 )
         )
     }
     
+    private var analyticsTeaser: some View {
+        Button {
+            DSHaptics.light()
+            showAnalytics = true
+        } label: {
+            HStack(spacing: 14) {
+                Image(systemName: "flame.fill")
+                    .font(.system(size: 18))
+                    .foregroundStyle(DSColor.accent)
+                    .frame(width: 36, height: 36)
+                    .background(RoundedRectangle(cornerRadius: 12).fill(DSColor.accent.opacity(0.15)))
+                
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Focus analytics")
+                        .font(.system(size: 14.5, weight: .semibold))
+                        .foregroundStyle(.white)
+                    
+                    if todayFocusMinutes > 0 {
+                        Text("\(todayFocusMinutes)m focused today")
+                            .font(.system(size: 12.5))
+                            .foregroundStyle(DSColor.textSecondary)
+                    } else {
+                        Text("See your week, streaks, and history")
+                            .font(.system(size: 12.5))
+                            .foregroundStyle(DSColor.textSecondary)
+                    }
+                }
+                
+                Spacer()
+                
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundStyle(DSColor.textTertiary)
+            }
+            .padding(.horizontal, 18)
+            .padding(.vertical, 14)
+            .background(
+                RoundedRectangle(cornerRadius: 18)
+                    .fill(DSColor.surface)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 18)
+                            .stroke(DSColor.hairline, lineWidth: 0.5)
+                    )
+            )
+        }
+    }
     // MARK: - Timeline
     
     private var timelineSection: some View {
@@ -385,7 +705,7 @@ struct DashboardView: View {
             switch priority {
             case 0: return ("Low", DSColor.success, "arrow.down")
             case 2: return ("High", DSColor.error, "flame.fill")
-            default: return ("Med", DSColor.amber, "minus")
+            default: return ("Med", DSColor.warning, "minus")
             }
         }()
         

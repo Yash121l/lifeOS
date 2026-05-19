@@ -83,7 +83,7 @@ struct AuthGateView: View {
                 featureRow(icon: "checkmark.circle.fill", text: "Tasks & Projects", color: DSColor.accent)
                 featureRow(icon: "calendar", text: "Time Blocking", color: DSColor.cyan)
                 featureRow(icon: "chart.pie.fill", text: "Finance Tracking", color: DSColor.success)
-                featureRow(icon: "book.fill", text: "Knowledge Capture", color: DSColor.amber)
+                featureRow(icon: "book.fill", text: "Knowledge Capture", color: DSColor.warning)
             }
             .padding(.horizontal, DSSpacing.xxl)
             

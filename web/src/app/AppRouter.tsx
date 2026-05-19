@@ -1,22 +1,27 @@
 import { lazy, Suspense } from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
-import { useAuth } from '../features/auth/AuthProvider';
-import { useData } from '../features/data/DataProvider';
+import { useAuth } from '../modules/auth/AuthProvider';
+import { useData } from '../modules/data/DataProvider';
 
-const AuthPage = lazy(() => import('../features/auth/AuthPage'));
-const AppShell = lazy(() => import('../features/layout/AppShell'));
+const AuthPage = lazy(() => import('../modules/auth/AuthPage'));
+const AppShell = lazy(() => import('../modules/layout/AppShell'));
 const DashboardPage = lazy(
-  () => import('../features/dashboard/DashboardPage'),
+  () => import('../modules/dashboard/DashboardPage'),
 );
-const TasksPage = lazy(() => import('../features/tasks/TasksPage'));
-const TimePage = lazy(() => import('../features/time/TimePage'));
+const TasksPage = lazy(() => import('../modules/tasks/TasksPage'));
+const TimePage = lazy(() => import('../modules/time/TimePage'));
 const KnowledgePage = lazy(
-  () => import('../features/knowledge/KnowledgePage'),
+  () => import('../modules/knowledge/KnowledgePage'),
 );
-const FinancePage = lazy(() => import('../features/finance/FinancePage'));
+const FinancePage = lazy(() => import('../modules/finance/FinancePage'));
 const SettingsPage = lazy(
-  () => import('../features/settings/SettingsPage'),
+  () => import('../modules/settings/SettingsPage'),
 );
+
+const LandingPage = lazy(() => import('../pages/public/LandingPage'));
+const PrivacyPolicy = lazy(() => import('../pages/public/PrivacyPolicy'));
+const TermsOfService = lazy(() => import('../pages/public/TermsOfService'));
+const Support = lazy(() => import('../pages/public/Support'));
 
 function SplashScreen() {
   return (
@@ -41,19 +46,24 @@ export default function AppRouter() {
   }
 
   return (
-    <BrowserRouter>
+    <BrowserRouter basename={import.meta.env.BASE_URL}>
       <Suspense fallback={<SplashScreen />}>
         <Routes>
+          <Route path="/" element={<LandingPage />} />
+          <Route path="/privacy" element={<PrivacyPolicy />} />
+          <Route path="/terms" element={<TermsOfService />} />
+          <Route path="/support" element={<Support />} />
+
           <Route
             path="/auth"
-            element={user ? <Navigate to="/dashboard" replace /> : <AuthPage />}
+            element={user ? <Navigate to="/app/dashboard" replace /> : <AuthPage />}
           />
 
           <Route
-            path="/"
+            path="/app"
             element={user ? <AppShell /> : <Navigate to="/auth" replace />}
           >
-            <Route index element={<Navigate to="/dashboard" replace />} />
+            <Route index element={<Navigate to="dashboard" replace />} />
             <Route path="dashboard" element={<DashboardPage />} />
             <Route path="tasks" element={<TasksPage />} />
             <Route path="time" element={<TimePage />} />
@@ -64,7 +74,7 @@ export default function AppRouter() {
 
           <Route
             path="*"
-            element={<Navigate to={user ? '/dashboard' : '/auth'} replace />}
+            element={<Navigate to={user ? '/app/dashboard' : '/'} replace />}
           />
         </Routes>
       </Suspense>

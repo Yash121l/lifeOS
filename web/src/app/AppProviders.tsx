@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
-import { AuthProvider } from '../features/auth/AuthProvider';
-import { DataProvider } from '../features/data/DataProvider';
+import { AuthProvider } from '../modules/auth/AuthProvider';
+import { DataProvider } from '../modules/data/DataProvider';
 
 export default function AppProviders({ children }: { children: ReactNode }) {
   return (

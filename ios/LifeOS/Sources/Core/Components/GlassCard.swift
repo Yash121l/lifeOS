@@ -286,51 +286,6 @@ struct DSAvatar: View {
     }
 }
 
-// MARK: - DSSectionHeader
-
-struct DSSectionHeader: View {
-    let title: String
-    var count: Int?
-    var trailing: AnyView?
-    
-    init(_ title: String, count: Int? = nil) {
-        self.title = title
-        self.count = count
-        self.trailing = nil
-    }
-    
-    init(_ title: String, count: Int? = nil, @ViewBuilder trailing: () -> some View) {
-        self.title = title
-        self.count = count
-        self.trailing = AnyView(trailing())
-    }
-    
-    var body: some View {
-        HStack {
-            Text(title)
-                .font(DSFont.headline())
-                .foregroundStyle(DSColor.textPrimary)
-            
-            if let count, count > 0 {
-                Text("\(count)")
-                    .font(DSFont.captionSmall())
-                    .foregroundStyle(DSColor.textTertiary)
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 2)
-                    .background(
-                        Capsule().fill(DSColor.surfaceLight)
-                    )
-            }
-            
-            Spacer()
-            
-            if let trailing {
-                trailing
-            }
-        }
-    }
-}
-
 // MARK: - DSStatCard
 
 struct DSStatCard: View {

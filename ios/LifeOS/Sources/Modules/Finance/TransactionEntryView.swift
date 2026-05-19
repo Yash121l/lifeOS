@@ -29,156 +29,196 @@ struct TransactionEntryView: View {
     
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(spacing: DSSpacing.xl) {
-                    // Amount display
-                    VStack(spacing: DSSpacing.xs) {
-                        Text(isExpense ? "EXPENSE" : "INCOME")
-                            .font(DSFont.captionSmall())
-                            .foregroundStyle(isExpense ? DSColor.error : DSColor.success)
+            ZStack(alignment: .bottom) {
+                ScrollView(showsIndicators: false) {
+                    VStack(spacing: 0) {
+                        amountHeader
+                            .padding(.top, 20)
+                            .padding(.bottom, 32)
                         
-                        HStack(alignment: .firstTextBaseline, spacing: 2) {
-                            Text("₹")
-                                .font(.system(size: 28, weight: .bold, design: .rounded))
-                                .foregroundStyle(DSColor.textTertiary)
-                            
-                            TextField("0", text: $amount)
-                                .font(.system(size: 48, weight: .bold, design: .rounded))
-                                .foregroundStyle(.white)
-                                .keyboardType(.decimalPad)
-                                .multilineTextAlignment(.center)
-                                .frame(maxWidth: 200)
-                        }
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, DSSpacing.xxl)
-                    
-                    // Type toggle
-                    HStack(spacing: 0) {
-                        Button {
-                            DSHaptics.selection()
-                            withAnimation(DSAnimation.springQuick) { isExpense = true }
-                        } label: {
-                            Text("Expense")
-                                .font(DSFont.headline())
-                                .foregroundStyle(isExpense ? .white : DSColor.textTertiary)
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, DSSpacing.sm)
-                                .background(
-                                    RoundedRectangle(cornerRadius: DSRadius.md)
-                                        .fill(isExpense ? DSColor.error : .clear)
-                                )
-                        }
+                        typeToggle
+                            .padding(.horizontal, 22)
+                            .padding(.bottom, 28)
                         
-                        Button {
-                            DSHaptics.selection()
-                            withAnimation(DSAnimation.springQuick) { isExpense = false }
-                        } label: {
-                            Text("Income")
-                                .font(DSFont.headline())
-                                .foregroundStyle(!isExpense ? .white : DSColor.textTertiary)
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, DSSpacing.sm)
-                                .background(
-                                    RoundedRectangle(cornerRadius: DSRadius.md)
-                                        .fill(!isExpense ? DSColor.success : .clear)
-                                )
+                        VStack(spacing: 22) {
+                            descriptionSection
+                            categoryGrid
+                            detailsSection
                         }
-                    }
-                    .padding(3)
-                    .background(
-                        RoundedRectangle(cornerRadius: DSRadius.md + 3)
-                            .fill(DSColor.surfaceElevated)
-                    )
-                    
-                    // Title
-                    DSTextField(placeholder: "Description", text: $title, icon: "text.alignleft")
-                    
-                    // Category grid
-                    VStack(alignment: .leading, spacing: DSSpacing.xs) {
-                        Text("CATEGORY")
-                            .font(DSFont.captionSmall())
-                            .foregroundStyle(DSColor.textTertiary)
+                        .padding(.horizontal, 22)
                         
-                        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: DSSpacing.xs), count: 5), spacing: DSSpacing.xs) {
-                            ForEach(categories, id: \.0) { name, icon, color in
-                                Button {
-                                    DSHaptics.selection()
-                                    withAnimation(DSAnimation.springQuick) { selectedCategory = name }
-                                } label: {
-                                    VStack(spacing: DSSpacing.xxs) {
-                                        Image(systemName: icon)
-                                            .font(.system(size: 18, weight: .light))
-                                            .foregroundStyle(selectedCategory == name ? .white : color)
-                                        Text(name)
-                                            .font(.system(size: 9, weight: .medium))
-                                            .foregroundStyle(selectedCategory == name ? .white : DSColor.textTertiary)
-                                    }
-                                    .frame(maxWidth: .infinity)
-                                    .padding(.vertical, DSSpacing.sm)
-                                    .background(
-                                        RoundedRectangle(cornerRadius: DSRadius.md)
-                                            .fill(selectedCategory == name ? DSColor.accent.opacity(0.2) : DSColor.surfaceElevated)
-                                            .overlay(
-                                                RoundedRectangle(cornerRadius: DSRadius.md)
-                                                    .stroke(selectedCategory == name ? DSColor.accent.opacity(0.4) : DSColor.cardBorder, lineWidth: 1)
-                                            )
-                                    )
-                                }
-                            }
-                        }
-                    }
-                    
-                    // Date & Recurring
-                    VStack(spacing: DSSpacing.sm) {
-                        HStack {
-                            Text("Date")
-                                .font(DSFont.body())
-                                .foregroundStyle(DSColor.textPrimary)
-                            Spacer()
-                            DatePicker("", selection: $date, displayedComponents: .date)
-                                .labelsHidden()
-                                .tint(DSColor.accent)
-                        }
-                        .glassCard(padding: DSSpacing.sm)
-                        
-                        HStack {
-                            VStack(alignment: .leading, spacing: DSSpacing.xxxs) {
-                                Text("Recurring")
-                                    .font(DSFont.body())
-                                    .foregroundStyle(DSColor.textPrimary)
-                                Text("Repeat monthly")
-                                    .font(DSFont.captionSmall())
-                                    .foregroundStyle(DSColor.textTertiary)
-                            }
-                            Spacer()
-                            Toggle("", isOn: $isRecurring)
-                                .labelsHidden()
-                                .tint(DSColor.accent)
-                        }
-                        .glassCard(padding: DSSpacing.sm)
+                        Spacer(minLength: 120)
                     }
                 }
-                .padding(.horizontal, DSSpacing.md)
-                .padding(.vertical, DSSpacing.lg)
-            }
-            .background(DSColor.background)
-            .navigationTitle("Add Transaction")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    Button("Cancel") { dismiss() }
-                        .foregroundStyle(DSColor.textSecondary)
-                }
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button("Save") { saveTransaction() }
-                        .font(DSFont.headline())
-                        .foregroundStyle(canSave ? DSColor.accent : DSColor.textTertiary)
+                .background(DSColor.background)
+                
+                // Bottom Action Button
+                VStack(spacing: 0) {
+                    Divider().background(DSColor.hairline)
+                    HStack {
+                        Button { dismiss() } label: {
+                            Text("Cancel")
+                                .font(.system(size: 17, weight: .medium))
+                                .foregroundStyle(DSColor.textSecondary)
+                        }
+                        
+                        Spacer()
+                        
+                        Button { saveTransaction() } label: {
+                            Text("Log Transaction")
+                                .font(.system(size: 17, weight: .bold))
+                                .padding(.horizontal, 24)
+                                .padding(.vertical, 12)
+                                .background(canSave ? DSColor.accent : DSColor.surfaceElevated)
+                                .foregroundStyle(canSave ? .white : DSColor.textTertiary)
+                                .clipShape(Capsule())
+                        }
                         .disabled(!canSave)
+                    }
+                    .padding(.horizontal, 22)
+                    .padding(.vertical, 16)
+                    .background(.ultraThinMaterial)
+                }
+            }
+            .ignoresSafeArea(.keyboard)
+            .toolbar(.hidden)
+        }
+        .preferredColorScheme(.dark)
+    }
+    
+    // MARK: - Sections
+    
+    private var amountHeader: some View {
+        VStack(spacing: 8) {
+            Text("AMOUNT")
+                .font(.system(size: 11, weight: .bold))
+                .foregroundStyle(DSColor.textTertiary)
+                .kerning(0.6)
+            
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                Text("₹")
+                    .font(.system(size: 28, weight: .bold, design: .rounded))
+                    .foregroundStyle(isExpense ? DSColor.error : DSColor.success)
+                
+                TextField("0", text: $amount)
+                    .font(.system(size: 64, weight: .bold, design: .rounded))
+                    .foregroundStyle(.white)
+                    .keyboardType(.decimalPad)
+                    .multilineTextAlignment(.center)
+                    .fixedSize()
+            }
+        }
+    }
+    
+    private var typeToggle: some View {
+        HStack(spacing: 0) {
+            Button {
+                DSHaptics.selection()
+                withAnimation { isExpense = true }
+            } label: {
+                Text("Expense")
+                    .font(.system(size: 15, weight: .bold))
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 44)
+                    .background(isExpense ? DSColor.error : Color.clear)
+                    .foregroundStyle(isExpense ? .white : DSColor.textSecondary)
+            }
+            
+            Button {
+                DSHaptics.selection()
+                withAnimation { isExpense = false }
+            } label: {
+                Text("Income")
+                    .font(.system(size: 15, weight: .bold))
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 44)
+                    .background(!isExpense ? DSColor.success : Color.clear)
+                    .foregroundStyle(!isExpense ? .white : DSColor.textSecondary)
+            }
+        }
+        .background(DSColor.surface)
+        .clipShape(RoundedRectangle(cornerRadius: 14))
+        .overlay(RoundedRectangle(cornerRadius: 14).stroke(DSColor.hairline, lineWidth: 0.5))
+    }
+    
+    private var descriptionSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("DESCRIPTION")
+                .font(.system(size: 11, weight: .bold))
+                .foregroundStyle(DSColor.textTertiary)
+            
+            TextField("What was this for?", text: $title)
+                .font(.system(size: 18, weight: .medium))
+                .foregroundStyle(.white)
+            
+            Rectangle()
+                .fill(DSColor.hairline)
+                .frame(height: 1)
+        }
+    }
+    
+    private var categoryGrid: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("CATEGORY")
+                .font(.system(size: 11, weight: .bold))
+                .foregroundStyle(DSColor.textTertiary)
+            
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 10), count: 4), spacing: 10) {
+                ForEach(categories, id: \.0) { name, icon, color in
+                    Button {
+                        DSHaptics.selection()
+                        selectedCategory = name
+                    } label: {
+                        VStack(spacing: 8) {
+                            Image(systemName: icon)
+                                .font(.system(size: 18))
+                                .foregroundStyle(selectedCategory == name ? .white : color)
+                            Text(name)
+                                .font(.system(size: 10, weight: .bold))
+                                .foregroundStyle(selectedCategory == name ? .white : DSColor.textSecondary)
+                                .lineLimit(1)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                        .background(selectedCategory == name ? color : DSColor.surface)
+                        .clipShape(RoundedRectangle(cornerRadius: 16))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 16)
+                                .stroke(selectedCategory == name ? color : DSColor.hairline, lineWidth: 0.5)
+                        )
+                    }
                 }
             }
         }
-        .preferredColorScheme(.dark)
+    }
+    
+    private var detailsSection: some View {
+        VStack(spacing: 1) {
+            HStack {
+                Label("Date", systemImage: "calendar")
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundStyle(.white)
+                Spacer()
+                DatePicker("", selection: $date, displayedComponents: .date)
+                    .labelsHidden()
+                    .tint(DSColor.accent)
+            }
+            .padding(18)
+            .background(DSColor.surface)
+            
+            Divider().background(DSColor.hairline)
+            
+            Toggle(isOn: $isRecurring) {
+                Label("Recurring", systemImage: "repeat")
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundStyle(.white)
+            }
+            .padding(18)
+            .background(DSColor.surface)
+            .tint(DSColor.accent)
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 22))
+        .overlay(RoundedRectangle(cornerRadius: 22).stroke(DSColor.hairline, lineWidth: 0.5))
     }
     
     private var canSave: Bool {

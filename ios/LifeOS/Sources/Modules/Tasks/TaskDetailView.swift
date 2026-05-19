@@ -34,266 +34,72 @@ struct TaskDetailView: View {
     
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(spacing: DSSpacing.xl) {
-                    // Title
-                    VStack(alignment: .leading, spacing: DSSpacing.xs) {
-                        Text("TITLE")
-                            .font(DSFont.captionSmall())
-                            .foregroundStyle(DSColor.textTertiary)
-                        DSTextField(placeholder: "What needs to be done?", text: $title)
+            Form {
+                Section {
+                    TextField("Task Name", text: $title)
+                        .font(.headline)
+                    
+                    TextField("Notes", text: $notes, axis: .vertical)
+                        .lineLimit(3...8)
+                }
+                
+                Section {
+                    Picker("Priority", selection: $priority) {
+                        Text("Low").tag(0)
+                        Text("Medium").tag(1)
+                        Text("High").tag(2)
                     }
                     
-                    // Priority
-                    VStack(alignment: .leading, spacing: DSSpacing.xs) {
-                        Text("PRIORITY")
-                            .font(DSFont.captionSmall())
-                            .foregroundStyle(DSColor.textTertiary)
-                        
-                        HStack(spacing: DSSpacing.xs) {
-                            ForEach(0..<3) { level in
-                                let (label, color): (String, Color) = {
-                                    switch level {
-                                    case 0: return ("Low", DSColor.success)
-                                    case 2: return ("High", DSColor.error)
-                                    default: return ("Medium", DSColor.amber)
-                                    }
-                                }()
-                                
-                                Button {
-                                    DSHaptics.selection()
-                                    withAnimation(DSAnimation.springQuick) { priority = level }
-                                } label: {
-                                    Text(label)
-                                        .font(DSFont.caption())
-                                        .foregroundStyle(priority == level ? .white : color)
-                                        .frame(maxWidth: .infinity)
-                                        .padding(.vertical, DSSpacing.sm)
-                                        .background(
-                                            RoundedRectangle(cornerRadius: DSRadius.md)
-                                                .fill(priority == level ? color : color.opacity(0.1))
-                                                .overlay(
-                                                    RoundedRectangle(cornerRadius: DSRadius.md)
-                                                        .stroke(color.opacity(0.3), lineWidth: 1)
-                                                )
-                                        )
-                                }
-                            }
-                        }
+                    Picker("Energy Level", selection: $energyLevel) {
+                        Text("Low").tag(1)
+                        Text("Medium").tag(2)
+                        Text("High").tag(3)
                     }
                     
-                    // Energy Level
-                    VStack(alignment: .leading, spacing: DSSpacing.xs) {
-                        Text("ENERGY REQUIRED")
-                            .font(DSFont.captionSmall())
-                            .foregroundStyle(DSColor.textTertiary)
-                        
-                        HStack(spacing: DSSpacing.xs) {
-                            ForEach(1..<4) { level in
-                                let (label, icon): (String, String) = {
-                                    switch level {
-                                    case 1: return ("Light", "leaf")
-                                    case 3: return ("Intense", "flame")
-                                    default: return ("Moderate", "bolt")
-                                    }
-                                }()
-                                
-                                Button {
-                                    DSHaptics.selection()
-                                    withAnimation(DSAnimation.springQuick) { energyLevel = level }
-                                } label: {
-                                    VStack(spacing: DSSpacing.xxs) {
-                                        Image(systemName: icon)
-                                            .font(.system(size: 18, weight: .light))
-                                            .foregroundStyle(energyLevel == level ? .white : DSColor.textSecondary)
-                                        Text(label)
-                                            .font(DSFont.captionSmall())
-                                            .foregroundStyle(energyLevel == level ? .white : DSColor.textSecondary)
-                                    }
-                                    .frame(maxWidth: .infinity)
-                                    .padding(.vertical, DSSpacing.sm)
-                                    .background(
-                                        RoundedRectangle(cornerRadius: DSRadius.md)
-                                            .fill(energyLevel == level ? DSColor.accent : DSColor.surfaceElevated)
-                                            .overlay(
-                                                RoundedRectangle(cornerRadius: DSRadius.md)
-                                                    .stroke(energyLevel == level ? DSColor.accent.opacity(0.5) : DSColor.cardBorder, lineWidth: 1)
-                                            )
-                                    )
-                                }
-                            }
-                        }
+                    Picker("Estimate", selection: $timeEstimate) {
+                        Text("15m").tag(15)
+                        Text("30m").tag(30)
+                        Text("45m").tag(45)
+                        Text("1h").tag(60)
+                        Text("2h").tag(120)
                     }
+                }
+                
+                Section {
+                    Toggle("Has Due Date", isOn: $hasDueDate.animation())
                     
-                    // Time Estimate
-                    VStack(alignment: .leading, spacing: DSSpacing.xs) {
-                        HStack {
-                            Text("TIME ESTIMATE")
-                                .font(DSFont.captionSmall())
-                                .foregroundStyle(DSColor.textTertiary)
-                            Spacer()
-                            Text(formatTime(timeEstimate))
-                                .font(DSFont.headline())
-                                .foregroundStyle(DSColor.accent)
-                        }
-                        
-                        let presets = [15, 30, 60, 120]
-                        let isCustom = !presets.contains(timeEstimate)
-                        
-                        HStack(spacing: DSSpacing.xs) {
-                            ForEach(presets, id: \.self) { mins in
-                                Button {
-                                    DSHaptics.selection()
-                                    withAnimation(DSAnimation.springQuick) {
-                                        timeEstimate = mins
-                                        showCustomTime = false
-                                    }
-                                } label: {
-                                    Text(formatTime(mins))
-                                        .font(DSFont.caption())
-                                        .foregroundStyle(timeEstimate == mins && !showCustomTime ? .white : DSColor.textSecondary)
-                                        .frame(maxWidth: .infinity)
-                                        .padding(.vertical, DSSpacing.xs)
-                                        .background(
-                                            RoundedRectangle(cornerRadius: DSRadius.sm)
-                                                .fill(timeEstimate == mins && !showCustomTime ? DSColor.accent : DSColor.surfaceElevated)
-                                        )
-                                }
-                            }
-                            
-                            // Custom button
-                            Button {
-                                DSHaptics.selection()
-                                withAnimation(DSAnimation.springQuick) {
-                                    showCustomTime.toggle()
-                                    if showCustomTime && !isCustom {
-                                        timeEstimate = 45
-                                    }
-                                }
-                            } label: {
-                                Image(systemName: "slider.horizontal.3")
-                                    .font(.system(size: 14, weight: .light))
-                                    .foregroundStyle(showCustomTime ? .white : DSColor.textSecondary)
-                                    .frame(maxWidth: .infinity)
-                                    .padding(.vertical, DSSpacing.xs)
-                                    .background(
-                                        RoundedRectangle(cornerRadius: DSRadius.sm)
-                                            .fill(showCustomTime ? DSColor.accent : DSColor.surfaceElevated)
-                                    )
-                            }
-                        }
-                        
-                        // Custom time wheel picker
-                        if showCustomTime {
-                            HStack(spacing: 0) {
-                                // Hours wheel
-                                Picker("Hours", selection: Binding(
-                                    get: { timeEstimate / 60 },
-                                    set: { timeEstimate = $0 * 60 + (timeEstimate % 60) }
-                                )) {
-                                    ForEach(0..<5) { h in
-                                        Text("\(h)h").tag(h)
-                                    }
-                                }
-                                .pickerStyle(.wheel)
-                                .frame(maxWidth: .infinity)
-                                .clipped()
-                                
-                                // Minutes wheel
-                                Picker("Minutes", selection: Binding(
-                                    get: { (timeEstimate % 60) / 5 * 5 },
-                                    set: { timeEstimate = (timeEstimate / 60) * 60 + $0 }
-                                )) {
-                                    ForEach(Array(stride(from: 0, through: 55, by: 5)), id: \.self) { m in
-                                        Text("\(m)m").tag(m)
-                                    }
-                                }
-                                .pickerStyle(.wheel)
-                                .frame(maxWidth: .infinity)
-                                .clipped()
-                            }
-                            .frame(height: 120)
-                            .padding(.horizontal, DSSpacing.sm)
-                            .background(
-                                RoundedRectangle(cornerRadius: DSRadius.md)
-                                    .fill(DSColor.surfaceElevated)
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: DSRadius.md)
-                                            .stroke(DSColor.cardBorder, lineWidth: 1)
-                                    )
-                            )
-                        }
+                    if hasDueDate {
+                        DatePicker("Due Date", selection: $dueDate, displayedComponents: [.date, .hourAndMinute])
                     }
-                    
-                    // Due Date
-                    VStack(alignment: .leading, spacing: DSSpacing.xs) {
-                        Toggle(isOn: $hasDueDate) {
-                            Text("DUE DATE")
-                                .font(DSFont.captionSmall())
-                                .foregroundStyle(DSColor.textTertiary)
-                        }
-                        .tint(DSColor.accent)
-                        
-                        if hasDueDate {
-                            DatePicker("", selection: $dueDate, displayedComponents: [.date, .hourAndMinute])
-                                .datePickerStyle(.graphical)
-                                .tint(DSColor.accent)
-                                .padding(DSSpacing.sm)
-                                .background(
-                                    RoundedRectangle(cornerRadius: DSRadius.md)
-                                        .fill(DSColor.surfaceElevated)
-                                )
-                        }
-                    }
-                    
-                    // Notes
-                    VStack(alignment: .leading, spacing: DSSpacing.xs) {
-                        Text("NOTES")
-                            .font(DSFont.captionSmall())
-                            .foregroundStyle(DSColor.textTertiary)
-                        
-                        TextEditor(text: $notes)
-                            .font(DSFont.body())
-                            .foregroundStyle(DSColor.textPrimary)
-                            .scrollContentBackground(.hidden)
-                            .frame(minHeight: 100)
-                            .padding(DSSpacing.sm)
-                            .background(
-                                RoundedRectangle(cornerRadius: DSRadius.md)
-                                    .fill(DSColor.surfaceElevated)
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: DSRadius.md)
-                                            .stroke(DSColor.cardBorder, lineWidth: 1)
-                                    )
-                            )
-                    }
-                    
-                    // Delete button (for existing tasks)
-                    if !isNew {
-                        DSButton("Delete Task", icon: "trash", style: .destructive, isFullWidth: true) {
+                }
+                
+                if !isNew {
+                    Section {
+                        Button(role: .destructive) {
                             DSHaptics.error()
                             Task {
                                 try? await store.deleteTask(existingTask!.id, userId: userId)
                                 dismiss()
                             }
+                        } label: {
+                            HStack {
+                                Spacer()
+                                Text("Delete Task")
+                                Spacer()
+                            }
                         }
                     }
                 }
-                .padding(.horizontal, DSSpacing.md)
-                .padding(.vertical, DSSpacing.lg)
             }
-            .background(DSColor.background)
             .navigationTitle(isNew ? "New Task" : "Edit Task")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Button("Cancel") { dismiss() }
-                        .foregroundStyle(DSColor.textSecondary)
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("Save") { saveTask() }
-                        .font(DSFont.headline())
-                        .foregroundStyle(title.isEmpty ? DSColor.textTertiary : DSColor.accent)
+                        .fontWeight(.bold)
                         .disabled(title.isEmpty)
                 }
             }
