@@ -335,7 +335,7 @@ export default function FinancePage() {
                       {tx.isExpense ? <ArrowDownRight size={20} /> : <ArrowUpRight size={20} />}
                     </div>
                     <div className="min-w-0">
-                      <strong className="block truncate text-sm font-semibold tracking-tight leading-tight">{tx.description}</strong>
+                      <strong className="block truncate text-sm font-semibold tracking-tight leading-tight">{tx.title}</strong>
                       <div className="flex items-center gap-2 mt-1">
                         <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{tx.category}</span>
                         <span className="h-0.5 w-0.5 rounded-full bg-white/20" />

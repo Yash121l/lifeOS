@@ -195,7 +195,7 @@ export default function Editor({ onChange, content }: EditorProps) {
       TaskList,
       TaskItem.configure({ nested: true }),
     ],
-    content: value,
+    content: content,
     onUpdate: ({ editor: currentEditor }) => {
       onChange(currentEditor.getHTML());
 
