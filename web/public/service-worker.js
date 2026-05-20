@@ -1,10 +1,10 @@
 const CACHE_NAME = 'lifeos-web-v2';
-const toAbsoluteUrl = (path = '') => new URL(path, self.registration.scope).toString();
+const toScopedUrl = (path = '') => new URL(path, self.registration.scope).toString();
 const APP_SHELL = [
-  toAbsoluteUrl(''),
-  toAbsoluteUrl('index.html'),
-  toAbsoluteUrl('manifest.webmanifest'),
-  toAbsoluteUrl('lifeos-icon.svg'),
+  toScopedUrl(''),
+  toScopedUrl('index.html'),
+  toScopedUrl('manifest.webmanifest'),
+  toScopedUrl('lifeos-icon.svg'),
 ];
 
 self.addEventListener('install', (event) => {
@@ -32,7 +32,7 @@ self.addEventListener('fetch', (event) => {
   const acceptsHtml = request.headers.get('accept')?.includes('text/html');
 
   if (acceptsHtml) {
-    event.respondWith(fetch(request).catch(() => caches.match(toAbsoluteUrl('index.html'))));
+    event.respondWith(fetch(request).catch(() => caches.match(toScopedUrl('index.html'))));
     return;
   }
 
