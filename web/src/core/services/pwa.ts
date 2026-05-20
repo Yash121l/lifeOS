@@ -7,9 +7,12 @@ type DeferredPrompt = Event & {
 
 export function registerServiceWorker(): void {
   if (!import.meta.env.PROD || !('serviceWorker' in navigator)) return;
+  const baseUrl = import.meta.env.BASE_URL;
 
   window.addEventListener('load', () => {
-    void navigator.serviceWorker.register('/service-worker.js');
+    void navigator.serviceWorker.register(`${baseUrl}service-worker.js`, {
+      scope: baseUrl,
+    });
   });
 }
 
