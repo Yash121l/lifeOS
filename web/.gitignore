@@ -12,6 +12,8 @@ dist
 dist-ssr
 *.local
 .env*
+# Public PostHog client key, committed on purpose so the Pages build needs no secret
+!.env.production
 
 # Editor directories and files
 .vscode/*

@@ -32,6 +32,7 @@ import type {
   TransactionItem,
 } from '../../core/models/index';
 import { useAuth } from '../auth/AuthProvider';
+import { track } from '../../core/services/analytics';
 
 type CollectionName =
   | 'tasks'
@@ -277,31 +278,56 @@ export function DataProvider({ children }: { children: ReactNode }) {
     isLoading: effectiveIsLoading,
     syncState,
     saveTask: async (task) => {
+      const previous = tasks.find((t) => t.id === task.id);
       await saveDocument('tasks', task);
+      if (!previous) {
+        track('task_created', {
+          priority: task.priority,
+          has_due_date: task.dueDate !== null,
+          has_project: task.projectId !== null,
+        });
+      } else if (task.isCompleted && !previous.isCompleted) {
+        track('task_completed', { priority: task.priority });
+      }
     },
     deleteTask: async (taskId) => {
       await deleteDocument('tasks', taskId);
     },
     saveTimeBlock: async (block) => {
+      const isNew = !timeBlocks.some((b) => b.id === block.id);
       await saveDocument('timeBlocks', block);
+      if (isNew) track('time_block_created');
     },
     deleteTimeBlock: async (blockId) => {
       await deleteDocument('timeBlocks', blockId);
     },
     saveNote: async (note) => {
+      const isNew = !notes.some((n) => n.id === note.id);
       await saveDocument('notes', note);
+      if (isNew) track('note_created');
     },
     deleteNote: async (noteId) => {
       await deleteDocument('notes', noteId);
     },
     saveTransaction: async (transaction) => {
+      const isNew = !transactions.some((t) => t.id === transaction.id);
       await saveDocument('transactions', transaction);
+      // Category and kind only; amounts and titles stay out.
+      if (isNew) {
+        track('transaction_added', {
+          is_expense: transaction.isExpense,
+          category: transaction.category,
+          is_recurring: transaction.isRecurring,
+        });
+      }
     },
     deleteTransaction: async (transactionId) => {
       await deleteDocument('transactions', transactionId);
     },
     saveProject: async (project) => {
+      const isNew = !projects.some((p) => p.id === project.id);
       await saveDocument('projects', project);
+      if (isNew) track('project_created');
     },
     deleteProject: async (projectId) => {
       await deleteDocument('projects', projectId);

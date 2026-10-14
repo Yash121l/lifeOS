@@ -3,8 +3,10 @@ import { createRoot } from 'react-dom/client';
 import App from './App.tsx';
 import AppProviders from './app/AppProviders.tsx';
 import { registerServiceWorker } from './core/services/pwa.ts';
+import { initAnalytics } from './core/services/analytics.ts';
 import './core/theme/index.css';
 
+initAnalytics();
 registerServiceWorker();
 
 // Force dark mode for premium Apple-tier aesthetic

@@ -14,6 +14,7 @@ final class AuthService {
             if let user = currentUser {
                 AnalyticsManager.setUserID(user.uid)
                 AnalyticsManager.setUserProperty(user.email, forName: "email")
+                AnalyticsManager.identify(id: user.uid, email: user.email, name: user.displayName)
             } else {
                 AnalyticsManager.setUserID(nil)
             }

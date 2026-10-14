@@ -91,6 +91,7 @@ struct LifeOSApp: App {
         AppCheck.setAppCheckProviderFactory(providerFactory)
         
         FirebaseApp.configure()
+        AnalyticsManager.start()
         
         // Performance
         Performance.sharedInstance().isDataCollectionEnabled = true
