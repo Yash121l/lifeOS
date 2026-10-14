@@ -29,6 +29,8 @@ self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
 
   const request = event.request;
+  // Never cache analytics: PostHog's remote config must stay fresh.
+  if (new URL(request.url).hostname.endsWith('posthog.com')) return;
   const acceptsHtml = request.headers.get('accept')?.includes('text/html');
 
   if (acceptsHtml) {

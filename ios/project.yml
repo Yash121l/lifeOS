@@ -11,6 +11,9 @@ packages:
   GoogleSignIn:
     url: https://github.com/google/GoogleSignIn-iOS.git
     from: "8.0.0"
+  PostHog:
+    url: https://github.com/PostHog/posthog-ios
+    from: "3.92.0"
 
 targets:
   LifeOS:
@@ -34,6 +37,8 @@ targets:
         product: FirebaseRemoteConfig
       - package: GoogleSignIn
         product: GoogleSignIn
+      - package: PostHog
+        product: PostHog
       - target: LifeOSWidget
         embed: true
     settings:

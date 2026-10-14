@@ -17,6 +17,7 @@ import {
   updateProfile,
   type User,
 } from 'firebase/auth';
+import { identifyUser, resetUser, track } from '../../core/services/analytics';
 import { appleProvider, auth, googleProvider } from '../../core/network/firebase';
 
 type AuthAction = 'idle' | 'email' | 'provider' | 'reset' | 'signout';
@@ -78,7 +79,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    let signedIn = false;
     const unsubscribe = onAuthStateChanged(auth, (nextUser) => {
+      if (nextUser) {
+        identifyUser(nextUser);
+      } else if (signedIn) {
+        resetUser();
+      }
+      signedIn = Boolean(nextUser);
       setUser(nextUser);
       setIsLoading(false);
     });
@@ -123,6 +131,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       signInWithEmail: async (email, password) => {
         await runAction('email', async () => {
           await signInWithEmailAndPassword(auth, email, password);
+          track('user_logged_in', { method: 'email' });
         });
       },
       signUpWithEmail: async (nextDisplayName, email, password) => {
@@ -133,16 +142,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             password,
           );
           await updateProfile(result.user, { displayName: nextDisplayName });
+          track('signup_completed', { method: 'email' });
         });
       },
       signInWithGoogle: async () => {
         await runAction('provider', async () => {
           await signInWithPopup(auth, googleProvider);
+          track('user_logged_in', { method: 'google' });
         });
       },
       signInWithApple: async () => {
         await runAction('provider', async () => {
           await signInWithPopup(auth, appleProvider);
+          track('user_logged_in', { method: 'apple' });
         });
       },
       sendResetLink: async (email) => {
@@ -152,6 +164,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       },
       signOutUser: async () => {
         await runAction('signout', async () => {
+          track('user_logged_out');
           await signOut(auth);
         });
       },

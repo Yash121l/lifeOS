@@ -93,9 +93,13 @@ final class FirestoreService {
             
             // Analytics
             if isNew {
-                AnalyticsManager.logEvent(.taskCreated)
+                AnalyticsManager.logEvent(.taskCreated, parameters: [
+                    "priority": t.priority,
+                    "has_due_date": t.dueDate != nil,
+                    "has_project": t.projectId != nil
+                ])
             } else if t.isCompleted && !wasAlreadyCompleted {
-                AnalyticsManager.logEvent(.taskCompleted)
+                AnalyticsManager.logEvent(.taskCompleted, parameters: ["priority": t.priority])
             }
             
             // Schedule or cancel notification
@@ -144,11 +148,20 @@ final class FirestoreService {
     func saveTransaction(_ transaction: TransactionItem, userId: String) async throws {
         network.markPendingWrite()
         var t = transaction
+        let isNew = !transactions.contains { $0.id == t.id }
         t.userId = userId
         t.updatedAt = .now
         do {
             try transactionsCollection(userId: userId).document(t.id).setData(from: t)
             Logger.i("Saved Transaction \(t.id)", category: .database)
+            // Category and kind only; amounts and titles stay out.
+            if isNew {
+                AnalyticsManager.logEvent(.transactionAdded, parameters: [
+                    "is_expense": t.isExpense,
+                    "category": t.category,
+                    "is_recurring": t.isRecurring
+                ])
+            }
         } catch {
             Logger.e("Failed to save transaction \(t.id)", error: error, category: .database)
             throw error
@@ -188,9 +201,11 @@ final class FirestoreService {
     func saveNote(_ note: NoteItem, userId: String) async throws {
         network.markPendingWrite()
         var n = note
+        let isNew = !notes.contains { $0.id == n.id }
         n.userId = userId
         n.updatedAt = .now
         try notesCollection(userId: userId).document(n.id).setData(from: n)
+        if isNew { AnalyticsManager.logEvent(.noteCreated) }
     }
     
     func deleteNote(_ noteId: String, userId: String) async throws {
@@ -288,7 +303,12 @@ final class FirestoreService {
         s.userId = userId
         s.createdAt = .now
         try focusSessionsCollection(userId: userId).document(s.id).setData(from: s)
-        AnalyticsManager.logEvent(.sessionLogged)
+        AnalyticsManager.logEvent(.sessionLogged, parameters: [
+            "duration_seconds": s.durationSeconds,
+            "goal_seconds": s.goalSeconds,
+            "completed": s.isCompleted,
+            "linked_to_task": s.taskId != nil
+        ])
     }
     
     // MARK: - Widget Data Refresh
